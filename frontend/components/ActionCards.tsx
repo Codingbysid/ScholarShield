@@ -10,18 +10,26 @@ interface BillData {
 }
 
 interface PolicyAdvice {
-  advice: string;
+  summary: string;
   citations: string[];
+  actionable_step: string;
   confidence: string;
+}
+
+interface RecommendedAction {
+  action: string;
+  description: string;
+  priority: string;
 }
 
 interface ActionCardsProps {
   billData: BillData | null;
   onWriteGrant: () => void;
   policyAdvice: PolicyAdvice | null;
+  recommendedActions?: RecommendedAction[];
 }
 
-export default function ActionCards({ billData, onWriteGrant, policyAdvice }: ActionCardsProps) {
+export default function ActionCards({ billData, onWriteGrant, policyAdvice, recommendedActions = [] }: ActionCardsProps) {
   const actions = [
     {
       id: "grant",
@@ -44,7 +52,7 @@ export default function ActionCards({ billData, onWriteGrant, policyAdvice }: Ac
 
 Dear Bursar's Office,
 
-${policyAdvice.advice.split('\n\n')[0]}
+${policyAdvice.summary}
 
 ${policyAdvice.citations.length > 0 ? `Based on: ${policyAdvice.citations[0]}` : ''}
 
@@ -69,7 +77,7 @@ Best regards,
       onClick: () => {
         // This could open a modal or navigate to a policy page
         if (policyAdvice) {
-          alert(`Policy Advice:\n\n${policyAdvice.advice}`);
+          alert(`Policy Advice:\n\n${policyAdvice.summary}\n\nAction: ${policyAdvice.actionable_step}`);
         }
       },
       enabled: !!policyAdvice,

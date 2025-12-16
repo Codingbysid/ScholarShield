@@ -11,9 +11,11 @@ ScholarShield is an intelligent agentic system that helps students navigate fina
 ## Architecture
 
 ### Backend (FastAPI)
+- **ScholarShield Orchestrator**: The "Brain" that coordinates all agents and processes complete student cases
 - **Docu-Extract Agent**: Analyzes PDF tuition bills using Azure Document Intelligence
 - **Policy Lawyer Agent**: Searches university handbooks using RAG (Azure AI Search + OpenAI)
 - **Grant Hunter Agent**: Writes financial aid essays using Azure OpenAI
+- **Negotiator Agent**: Drafts professional emails to university bursars
 
 ### Frontend (Next.js)
 - Accessible dashboard with calm color palette
@@ -105,28 +107,83 @@ This loads:
 
 ## API Endpoints
 
-- `POST /api/analyze-bill` - Analyze a tuition bill PDF
-- `POST /api/policy-check` - Search university policies
-- `POST /api/write-grant` - Generate a grant application essay
+- `POST /api/assess-financial-health` - Main orchestrator endpoint that processes a complete student case (analyzes bill, calculates risk, searches policies, generates advice, and drafts emails)
 - `GET /health` - Health check
 
 ## Azure Setup Instructions
 
-### Azure OpenAI Service
-1. Create an Azure OpenAI resource
-2. Deploy models:
-   - `gpt-4o` for reasoning and text generation
-   - `text-embedding-3-small` for search (if using embeddings)
+### Quick Setup with Azure CLI
 
-### Azure AI Search
-1. Create an Azure AI Search service
-2. Enable Semantic Ranker (critical for RAG quality)
-3. Create an index named `university-policies`
-4. Index your university handbook documents
+1. **Login to Azure**
+```bash
+az login
+```
 
-### Azure AI Document Intelligence
-1. Create an Azure AI Document Intelligence resource
-2. Use the prebuilt-invoice model for bill analysis
+2. **Create Resource Group**
+```bash
+az group create --name ScholarShield-RG --location eastus
+```
+
+3. **Create Azure OpenAI Service**
+```bash
+az cognitiveservices account create \
+  --name ScholarShield-OpenAI \
+  --resource-group ScholarShield-RG \
+  --location eastus \
+  --kind OpenAI \
+  --sku s0
+```
+
+**Note**: You may need to request access to Azure OpenAI first. Visit the Azure Portal to request access if needed.
+
+After creating the resource, deploy models:
+- `gpt-4o` for reasoning and text generation
+- `text-embedding-3-small` for search (if using embeddings)
+
+4. **Create Azure AI Document Intelligence**
+```bash
+az cognitiveservices account create \
+  --name ScholarShield-DocIntel \
+  --resource-group ScholarShield-RG \
+  --location eastus \
+  --kind FormRecognizer \
+  --sku s0
+```
+
+This service uses the prebuilt-invoice model for bill analysis.
+
+5. **Create Azure AI Search**
+```bash
+az search service create \
+  --name scholarshield-search \
+  --resource-group ScholarShield-RG \
+  --location eastus \
+  --sku basic
+```
+
+After creation:
+- Enable Semantic Ranker (critical for RAG quality)
+- Create an index named `university-policies`
+- Index your university handbook documents
+
+### Manual Setup via Azure Portal
+
+If you prefer using the Azure Portal:
+
+1. **Azure OpenAI Service**
+   - Navigate to Azure Portal → Create Resource → Azure OpenAI
+   - Deploy `gpt-4o` model
+   - Copy the endpoint and key to your `.env` file
+
+2. **Azure AI Document Intelligence**
+   - Navigate to Azure Portal → Create Resource → Form Recognizer
+   - Copy the endpoint and key to your `.env` file
+
+3. **Azure AI Search**
+   - Navigate to Azure Portal → Create Resource → Azure AI Search
+   - Enable Semantic Ranker
+   - Create index `university-policies`
+   - Copy the endpoint and admin key to your `.env` file
 
 ## Project Structure
 
@@ -134,9 +191,11 @@ This loads:
 ScholarShield/
 ├── backend/
 │   ├── agents/
+│   │   ├── orchestrator.py       # Main orchestrator (coordinates all agents)
 │   │   ├── document_parser.py    # Docu-Extract agent
 │   │   ├── policy_rag.py         # Policy Lawyer agent
-│   │   └── grant_writer.py       # Grant Hunter agent
+│   │   ├── grant_writer.py       # Grant Hunter agent
+│   │   └── negotiator.py         # Email negotiation agent
 │   ├── main.py                   # FastAPI application
 │   └── requirements.txt
 ├── frontend/
@@ -146,9 +205,12 @@ ScholarShield/
 │   ├── components/
 │   │   ├── BillUpload.tsx        # File upload component
 │   │   ├── RiskMeter.tsx         # Risk assessment gauge
-│   │   └── ActionCards.tsx       # Action recommendations
-│   └── demo_mode.json            # Demo data
+│   │   ├── ActionCards.tsx       # Action recommendations
+│   │   └── ProcessingStatus.tsx  # Progress stepper component
+│   └── public/
+│       └── demo_mode.json        # Demo data
 ├── docker-compose.yml
+├── env.example                   # Environment variable template
 └── README.md
 ```
 

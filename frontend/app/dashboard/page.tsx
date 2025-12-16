@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import BillUpload from "@/components/BillUpload";
 import RiskMeter from "@/components/RiskMeter";
 import ActionCards from "@/components/ActionCards";
+import ProcessingStatus from "@/components/ProcessingStatus";
 import axios from "axios";
 
 interface BillData {
@@ -14,58 +15,125 @@ interface BillData {
 }
 
 interface PolicyAdvice {
-  advice: string;
+  summary: string;
   citations: string[];
+  actionable_step: string;
   confidence: string;
 }
 
+interface ProcessingStep {
+  id: string;
+  label: string;
+  status: "pending" | "loading" | "completed";
+}
+
+interface FinancialAssessment {
+  bill_data: BillData;
+  risk_level: "SAFE" | "WARNING" | "CRITICAL";
+  policy_findings: {
+    search_results: any[];
+    advice: PolicyAdvice;
+  } | null;
+  recommended_actions: Array<{
+    action: string;
+    description: string;
+    priority: string;
+  }>;
+  negotiation_email: string | null;
+  status: string;
+}
+
 export default function Dashboard() {
-  const [billData, setBillData] = useState<BillData | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [policyAdvice, setPolicyAdvice] = useState<PolicyAdvice | null>(null);
+  const [assessment, setAssessment] = useState<FinancialAssessment | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
+    { id: "scan", label: "Scanning Tuition Bill...", status: "pending" },
+    { id: "risk", label: "Assessing Financial Risk...", status: "pending" },
+    { id: "policy", label: "Searching University Bylaws...", status: "pending" },
+    { id: "draft", label: "Drafting Advocacy Letters...", status: "pending" },
+  ]);
   const [grantEssay, setGrantEssay] = useState<string | null>(null);
 
-  const checkPolicyAdvice = async (query: string) => {
-    try {
-      const response = await axios.post("http://localhost:8000/api/policy-check", { query });
-      if (response.data.success) {
-        setPolicyAdvice(response.data.advice);
-      }
-    } catch (error) {
-      console.error("Error checking policy:", error);
-    }
+  const updateStepStatus = (stepId: string, status: ProcessingStep["status"]) => {
+    setProcessingSteps((prev) =>
+      prev.map((step) => (step.id === stepId ? { ...step, status } : step))
+    );
   };
 
   const handleBillUpload = useCallback(async (file: File) => {
-    setIsAnalyzing(true);
+    setIsProcessing(true);
+    
+    // Initialize all steps as pending
+    setProcessingSteps((prev) =>
+      prev.map((step) => ({ ...step, status: "pending" }))
+    );
+    
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await axios.post("http://localhost:8000/api/analyze-bill", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      // Step 1: Scanning bill
+      updateStepStatus("scan", "loading");
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate processing time
 
-      if (response.data.success) {
-        setBillData(response.data.data);
-        
-        // Automatically check for policy advice
-        if (response.data.data.TotalAmount && response.data.data.DueDate) {
-          const query = `I have a tuition bill for $${response.data.data.TotalAmount} due on ${response.data.data.DueDate}. What options do I have?`;
-          await checkPolicyAdvice(query);
+      const response = await axios.post(
+        "http://localhost:8000/api/assess-financial-health",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         }
+      );
+
+      // Simulate step-by-step progress
+      updateStepStatus("scan", "completed");
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      updateStepStatus("risk", "loading");
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      if (response.data.success && response.data.assessment) {
+        const assessmentData = response.data.assessment;
+        updateStepStatus("risk", "completed");
+
+        // If policy search was performed
+        if (assessmentData.policy_findings) {
+          updateStepStatus("policy", "loading");
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          updateStepStatus("policy", "completed");
+        } else {
+          updateStepStatus("policy", "completed"); // Skip if not needed
+        }
+
+        // If negotiation email was drafted
+        if (assessmentData.negotiation_email) {
+          updateStepStatus("draft", "loading");
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          updateStepStatus("draft", "completed");
+        } else {
+          updateStepStatus("draft", "completed"); // Complete anyway
+        }
+
+        setAssessment(assessmentData);
+      } else {
+        throw new Error("Assessment failed");
       }
     } catch (error) {
-      console.error("Error analyzing bill:", error);
-      alert("Failed to analyze bill. Please try again.");
+      console.error("Error processing bill:", error);
+      alert("Failed to process bill. Please try again.");
+      // Reset steps on error
+      setProcessingSteps((prev) =>
+        prev.map((step) => ({ ...step, status: "pending" }))
+      );
     } finally {
-      setIsAnalyzing(false);
+      setIsProcessing(false);
     }
   }, []);
 
   const handleWriteGrant = async () => {
+    if (!assessment) return;
+    
     try {
       const response = await axios.post("http://localhost:8000/api/write-grant", {
         student_profile: {
@@ -74,7 +142,8 @@ export default function Dashboard() {
           gpa: "3.5",
           year: "Sophomore"
         },
-        grant_requirements: "Emergency grant for students facing immediate financial hardship. Must demonstrate need and maintain good academic standing."
+        grant_requirements: "Emergency grant for students facing immediate financial hardship. Must demonstrate need and maintain good academic standing.",
+        policy_context: assessment.policy_findings?.advice?.citations || []
       });
 
       if (response.data.success) {
@@ -87,60 +156,93 @@ export default function Dashboard() {
   };
 
   const calculateRiskLevel = (): "safe" | "warning" | "critical" => {
-    if (!billData) return "safe";
-    
-    const amount = billData.TotalAmount || 0;
-    const dueDate = new Date(billData.DueDate);
-    const today = new Date();
-    const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (amount > 1000 && daysUntilDue <= 3) return "critical";
-    if (amount > 500 && daysUntilDue <= 7) return "warning";
-    return "safe";
+    if (!assessment) return "safe";
+    const risk = assessment.risk_level;
+    return risk.toLowerCase() as "safe" | "warning" | "critical";
   };
 
   const loadDemoMode = useCallback(async () => {
     try {
-      const response = await fetch('/demo_mode.json');
+      const response = await fetch("/demo_mode.json");
       const demoData = await response.json();
-      
-      // Set bill data
-      setBillData(demoData.bill);
-      
-      // Set policy advice
-      setPolicyAdvice(demoData.policyAdvice);
-      
-      // Set grant essay
-      setGrantEssay(demoData.grantEssay);
+
+      // Set assessment data
+      setAssessment({
+        bill_data: demoData.bill,
+        risk_level: "CRITICAL",
+        policy_findings: {
+          search_results: [],
+          advice: {
+            summary: demoData.policyAdvice.advice.split("\n\n")[0],
+            citations: demoData.policyAdvice.citations,
+            actionable_step: "Submit a written request to the Bursar's Office citing Bylaw 4.2",
+            confidence: "high"
+          }
+        },
+        recommended_actions: [
+          {
+            action: "Request Extension",
+            description: "Submit a written request to the Bursar's Office",
+            priority: "high"
+          }
+        ],
+        negotiation_email: null,
+        status: "completed"
+      });
+
+      // Mark all steps as completed
+      setProcessingSteps((prev) =>
+        prev.map((step) => ({ ...step, status: "completed" as const }))
+      );
     } catch (error) {
       console.error("Error loading demo data:", error);
       // Fallback to hardcoded demo data
-      setBillData({
-        TotalAmount: 1200.00,
-        DueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        VendorName: "State University",
-        InvoiceId: "INV-2024-001234"
+      setAssessment({
+        bill_data: {
+          TotalAmount: 1200.00,
+          DueDate: new Date(Date.now() + 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0],
+          VendorName: "State University",
+          InvoiceId: "INV-2024-001234",
+        },
+        risk_level: "CRITICAL",
+        policy_findings: {
+          search_results: [],
+          advice: {
+            summary:
+              "Students facing financial hardship may request an extension of up to 30 days for tuition payment deadlines.",
+            citations: ["University Handbook 2024, Section 4.2"],
+            actionable_step:
+              "Submit a written request to the Bursar's Office citing Bylaw 4.2",
+            confidence: "high",
+          },
+        },
+        recommended_actions: [
+          {
+            action: "Request Extension",
+            description: "Submit a written request to the Bursar's Office",
+            priority: "high",
+          },
+        ],
+        negotiation_email: null,
+        status: "completed",
       });
-      setPolicyAdvice({
-        advice: "Based on the university handbook, I found relevant information for your question.\n\nBylaw 4.2: Hardship Extension - Students facing financial hardship may request an extension of up to 30 days for tuition payment deadlines.",
-        citations: ["University Handbook 2024, Section 4.2"],
-        confidence: "high"
-      });
-      setGrantEssay("As a Computer Science student with a GPA of 3.5, I am writing to respectfully request consideration for emergency financial assistance...");
+      setProcessingSteps((prev) =>
+        prev.map((step) => ({ ...step, status: "completed" as const }))
+      );
     }
   }, []);
 
-  // Hidden demo button handler - trigger with keyboard shortcut or click
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Press 'D' + 'E' + 'M' + 'O' in sequence or Ctrl+Shift+D
-      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      if (e.ctrlKey && e.shiftKey && e.key === "D") {
         loadDemoMode();
       }
     };
-    
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
   }, [loadDemoMode]);
 
   return (
@@ -168,87 +270,141 @@ export default function Dashboard() {
           <div className="lg:col-span-2">
             <BillUpload
               onFileUpload={handleBillUpload}
-              isAnalyzing={isAnalyzing}
+              isAnalyzing={isProcessing}
             />
-            
-            {billData && (
-              <div className="mt-6 bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  Bill Details
-                </h2>
-                <div className="space-y-3 text-lg">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Amount:</span>
-                    <span className="font-bold text-gray-800">
-                      ${billData.TotalAmount?.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Due Date:</span>
-                    <span className="font-bold text-gray-800">{billData.DueDate}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Vendor:</span>
-                    <span className="font-bold text-gray-800">{billData.VendorName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Invoice ID:</span>
-                    <span className="font-bold text-gray-800">{billData.InvoiceId}</span>
-                  </div>
-                </div>
-              </div>
+
+            {/* Show processing steps while processing */}
+            {isProcessing && (
+              <ProcessingStatus steps={processingSteps} />
             )}
 
-            {policyAdvice && (
-              <div className="mt-6 bg-green-50 border-2 border-green-200 rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-semibold text-green-800 mb-4">
-                  Policy Advice Found
-                </h2>
-                <div className="text-gray-700 whitespace-pre-wrap mb-4">
-                  {policyAdvice.advice}
+            {/* Show results only after processing is complete */}
+            {assessment && !isProcessing && (
+              <>
+                <div className="mt-6 bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                    Bill Details
+                  </h2>
+                  <div className="space-y-3 text-lg">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Amount:</span>
+                      <span className="font-bold text-gray-800">
+                        ${assessment.bill_data.TotalAmount?.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Due Date:</span>
+                      <span className="font-bold text-gray-800">
+                        {assessment.bill_data.DueDate}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Vendor:</span>
+                      <span className="font-bold text-gray-800">
+                        {assessment.bill_data.VendorName}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Invoice ID:</span>
+                      <span className="font-bold text-gray-800">
+                        {assessment.bill_data.InvoiceId}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                {policyAdvice.citations.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="font-semibold text-green-800 mb-2">Citations:</h3>
-                    <ul className="list-disc list-inside space-y-1">
-                      {policyAdvice.citations.map((citation, idx) => (
-                        <li key={idx} className="text-sm text-gray-600">{citation}</li>
-                      ))}
-                    </ul>
+
+                {assessment.policy_findings && (
+                  <div className="mt-6 bg-green-50 border-2 border-green-200 rounded-lg shadow-md p-6">
+                    <h2 className="text-2xl font-semibold text-green-800 mb-4">
+                      Policy Advice Found
+                    </h2>
+                    <div className="text-gray-700 mb-4">
+                      {assessment.policy_findings.advice.summary}
+                    </div>
+                    {assessment.policy_findings.advice.actionable_step && (
+                      <div className="bg-green-100 p-3 rounded mb-4">
+                        <strong className="text-green-800">Action:</strong>{" "}
+                        <span className="text-green-700">
+                          {assessment.policy_findings.advice.actionable_step}
+                        </span>
+                      </div>
+                    )}
+                    {assessment.policy_findings.advice.citations.length > 0 && (
+                      <div className="mt-4">
+                        <h3 className="font-semibold text-green-800 mb-2">
+                          Citations:
+                        </h3>
+                        <ul className="list-disc list-inside space-y-1">
+                          {assessment.policy_findings.advice.citations.map(
+                            (citation, idx) => (
+                              <li key={idx} className="text-sm text-gray-600">
+                                {citation}
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {grantEssay && (
-              <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-semibold text-blue-800 mb-4">
-                  Grant Essay
-                </h2>
-                <div className="text-gray-700 whitespace-pre-wrap mb-4">
-                  {grantEssay}
-                </div>
-                <button
-                  onClick={() => navigator.clipboard.writeText(grantEssay)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  Copy Essay
-                </button>
-              </div>
+                {assessment.negotiation_email && (
+                  <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg shadow-md p-6">
+                    <h2 className="text-2xl font-semibold text-blue-800 mb-4">
+                      Drafted Negotiation Email
+                    </h2>
+                    <div className="text-gray-700 whitespace-pre-wrap mb-4 bg-white p-4 rounded border">
+                      {assessment.negotiation_email}
+                    </div>
+                    <button
+                      onClick={() =>
+                        navigator.clipboard.writeText(assessment.negotiation_email!)
+                      }
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                      Copy Email
+                    </button>
+                  </div>
+                )}
+
+                {grantEssay && (
+                  <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg shadow-md p-6">
+                    <h2 className="text-2xl font-semibold text-blue-800 mb-4">
+                      Grant Essay
+                    </h2>
+                    <div className="text-gray-700 whitespace-pre-wrap mb-4">
+                      {grantEssay}
+                    </div>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(grantEssay)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                      Copy Essay
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           <div className="space-y-6">
-            <RiskMeter riskLevel={calculateRiskLevel()} billData={billData} />
-            <ActionCards
-              billData={billData}
-              onWriteGrant={handleWriteGrant}
-              policyAdvice={policyAdvice}
-            />
+            {assessment && (
+              <>
+                <RiskMeter
+                  riskLevel={calculateRiskLevel()}
+                  billData={assessment.bill_data}
+                />
+                <ActionCards
+                  billData={assessment.bill_data}
+                  onWriteGrant={handleWriteGrant}
+                  policyAdvice={assessment.policy_findings?.advice || null}
+                  recommendedActions={assessment.recommended_actions}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
-

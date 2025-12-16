@@ -2,6 +2,7 @@
 Policy Lawyer Agent: Searches university handbooks using RAG (Azure AI Search + OpenAI)
 """
 import os
+import json
 import logging
 from typing import List, Dict, Optional
 from openai import AzureOpenAI
@@ -111,15 +112,27 @@ async def generate_advice(context: List[Dict], query: str) -> Dict:
         system_prompt = """You are a helpful financial aid advisor for FGLI (First-Generation, Low-Income) students.
 You provide advice based STRICTLY on the provided university handbook context.
 Always cite the specific section or bylaw you reference.
-Be empathetic, clear, and actionable in your responses."""
+Be empathetic, clear, and actionable in your responses.
+
+You MUST return your response as valid JSON with the following structure:
+{
+  "summary": "One sentence summary of the policy",
+  "citations": ["List of specific sections cited"],
+  "actionable_step": "The immediate physical step the student should take (e.g. 'Fill out Form 10B')"
+}"""
         
-        user_prompt = f"""Based on the following university handbook excerpts, answer the student's question:
+        user_prompt = f"""Based on the following university handbook excerpts, answer the student's question in JSON format:
 
 {context_text}
 
 Student Question: {query}
 
-Provide your answer with specific citations from the handbook."""
+Return ONLY valid JSON with the structure:
+{{
+  "summary": "One sentence summary of the policy and recommendation",
+  "citations": ["List of specific sections cited from the handbook"],
+  "actionable_step": "The immediate concrete step the student should take"
+}}"""
         
         response = client.chat.completions.create(
             model=deployment,
@@ -128,19 +141,37 @@ Provide your answer with specific citations from the handbook."""
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.7,
-            max_tokens=500
+            max_tokens=500,
+            response_format={"type": "json_object"}
         )
         
-        advice_text = response.choices[0].message.content
+        advice_json_str = response.choices[0].message.content
         
-        # Extract citations
-        citations = [chunk.get('source', '') for chunk in context]
-        
-        return {
-            "advice": advice_text,
-            "citations": citations,
-            "confidence": "high" if len(context) > 0 else "low"
-        }
+        # Parse JSON response
+        try:
+            advice_data = json.loads(advice_json_str)
+            # Extract citations from context as well
+            citations = [chunk.get('source', '') for chunk in context]
+            # Merge with citations from LLM if provided
+            if "citations" in advice_data:
+                citations = list(set(citations + advice_data["citations"]))
+            
+            return {
+                "summary": advice_data.get("summary", ""),
+                "citations": citations,
+                "actionable_step": advice_data.get("actionable_step", ""),
+                "confidence": "high" if len(context) > 0 else "low"
+            }
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response: {str(e)}")
+            # Fallback to extracting from text
+            citations = [chunk.get('source', '') for chunk in context]
+            return {
+                "summary": advice_json_str[:200] + "..." if len(advice_json_str) > 200 else advice_json_str,
+                "citations": citations,
+                "actionable_step": "Contact the Bursar's Office",
+                "confidence": "medium"
+            }
         
     except Exception as e:
         logger.error(f"Error generating advice: {str(e)}")
@@ -181,26 +212,20 @@ def _mock_search_handbook(query: str) -> List[Dict]:
 
 
 def _mock_generate_advice(context: List[Dict], query: str) -> Dict:
-    """Mock advice generation for testing"""
+    """Mock advice generation for testing - returns structured JSON"""
     if context:
-        advice = f"""Based on the university handbook, I found relevant information for your question about "{query}".
-
-{context[0].get('content', '')}
-
-**Recommended Action:**
-You should submit a written request to the Bursar's Office citing Bylaw 4.2 (Hardship Extension). This allows for up to 30 days extension with proper documentation.
-
-**Citations:**
-- {context[0].get('source', 'Unknown source')}
-"""
         citations = [chunk.get('source', '') for chunk in context]
+        return {
+            "summary": "Students facing financial hardship may request an extension of up to 30 days for tuition payment deadlines by submitting a written request to the Bursar's Office with documentation of hardship, per Bylaw 4.2.",
+            "citations": citations,
+            "actionable_step": "Submit a written request to the Bursar's Office citing Bylaw 4.2 (Hardship Extension) with documentation of financial hardship",
+            "confidence": "high"
+        }
     else:
-        advice = "I couldn't find specific information in the handbook, but I recommend contacting the Financial Aid Office directly."
-        citations = []
-    
-    return {
-        "advice": advice,
-        "citations": citations,
-        "confidence": "high" if context else "low"
-    }
+        return {
+            "summary": "Unable to find specific policy information. Contact the Financial Aid Office for assistance.",
+            "citations": [],
+            "actionable_step": "Contact the Financial Aid Office directly",
+            "confidence": "low"
+        }
 
