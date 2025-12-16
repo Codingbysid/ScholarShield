@@ -1,0 +1,19 @@
+{
+  "bill": {
+    "TotalAmount": 1200.00,
+    "DueDate": "2024-12-16",
+    "VendorName": "State University",
+    "InvoiceId": "INV-2024-001234"
+  },
+  "policyAdvice": {
+    "advice": "Based on the university handbook, I found relevant information for your question about \"I have a tuition bill for $1200.00 due on 2024-12-16. What options do I have?\".\n\nBylaw 4.2: Hardship Extension - Students facing financial hardship may request an extension of up to 30 days for tuition payment deadlines. Requests must be submitted in writing to the Bursar's Office with documentation of hardship.\n\n**Recommended Action:**\nYou should submit a written request to the Bursar's Office citing Bylaw 4.2 (Hardship Extension). This allows for up to 30 days extension with proper documentation.\n\n**Citations:**\n- University Handbook 2024, Section 4.2",
+    "citations": [
+      "University Handbook 2024, Section 4.2",
+      "Financial Aid Handbook, Emergency Grants Section",
+      "University Handbook 2024, Section 4.3"
+    ],
+    "confidence": "high"
+  },
+  "grantEssay": "As a Computer Science student with a GPA of 3.5, I am writing to respectfully request consideration for emergency financial assistance. My academic journey has been marked by determination and resilience, but I now face significant financial barriers that threaten my ability to continue my education.\n\nFamily financial difficulties and unexpected medical expenses have created an urgent situation that requires immediate attention. Despite these challenges, I have maintained my academic performance and remain committed to my educational goals. I understand the value of education as a pathway to a better future, not only for myself but for my family.\n\nThe requested grant would provide crucial support during this difficult period, allowing me to focus on my studies without the constant stress of financial insecurity. I am grateful for any consideration and remain committed to excelling academically and contributing meaningfully to my community upon graduation.\n\nI respectfully request your assistance in helping me overcome these obstacles and continue my pursuit of higher education."
+}
+
