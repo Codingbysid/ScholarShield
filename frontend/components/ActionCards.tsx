@@ -1,6 +1,8 @@
 "use client";
 
-import { FileText, Mail, DollarSign, BookOpen } from "lucide-react";
+import { useState } from "react";
+import { FileText, Mail, DollarSign, BookOpen, Users, Volume2 } from "lucide-react";
+import axios from "axios";
 
 interface BillData {
   TotalAmount?: number;
@@ -27,9 +29,52 @@ interface ActionCardsProps {
   onWriteGrant: () => void;
   policyAdvice: PolicyAdvice | null;
   recommendedActions?: RecommendedAction[];
+  riskLevel?: "SAFE" | "WARNING" | "CRITICAL" | string;
 }
 
-export default function ActionCards({ billData, onWriteGrant, policyAdvice, recommendedActions = [] }: ActionCardsProps) {
+export default function ActionCards({ billData, onWriteGrant, policyAdvice, recommendedActions = [], riskLevel }: ActionCardsProps) {
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("es");
+  const [familyExplanation, setFamilyExplanation] = useState<{ text: string; audioBase64: string } | null>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+
+  const languages = [
+    { code: "es", name: "Spanish" },
+    { code: "hi", name: "Hindi" },
+    { code: "zh-Hans", name: "Mandarin" },
+    { code: "ar", name: "Arabic" },
+  ];
+
+  const handleExplainToFamily = async () => {
+    if (!billData || !riskLevel) {
+      alert("Please upload a bill first");
+      return;
+    }
+
+    setIsExplaining(true);
+    try {
+      // Build risk summary from bill data and risk level
+      const amount = billData.TotalAmount || 0;
+      const dueDate = billData.DueDate || "";
+      const riskSummary = `Risk ${riskLevel}. $${amount} due on ${dueDate}.`;
+
+      const response = await axios.post("http://localhost:8000/api/explain-to-parent", {
+        risk_summary: riskSummary,
+        language: selectedLanguage,
+      });
+
+      if (response.data.success) {
+        setFamilyExplanation({
+          text: response.data.translated_text,
+          audioBase64: response.data.audio_base64,
+        });
+      }
+    } catch (error) {
+      console.error("Error explaining to family:", error);
+      alert("Failed to generate explanation. Please try again.");
+    } finally {
+      setIsExplaining(false);
+    }
+  };
   const actions = [
     {
       id: "grant",
@@ -112,6 +157,73 @@ Best regards,
             </button>
           );
         })}
+
+        {/* Family Communication Card */}
+        <div className="border-2 border-orange-300 rounded-lg p-4 bg-orange-50">
+          <div className="flex items-start gap-3 mb-3">
+            <Users className="w-6 h-6 text-orange-600 flex-shrink-0 mt-1" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg text-orange-900 mb-1">
+                Family Communication
+              </h3>
+              <p className="text-sm text-orange-700 mb-3">
+                Explain the situation to your family in their language
+              </p>
+              
+              <div className="flex gap-2 mb-3">
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-orange-300 rounded-md text-sm bg-white"
+                  disabled={!billData || isExplaining}
+                >
+                  {languages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleExplainToFamily}
+                  disabled={!billData || isExplaining}
+                  className={`px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm font-semibold flex items-center gap-2 ${
+                    !billData || isExplaining
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  {isExplaining ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-4 h-4" />
+                      Explain
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {familyExplanation && (
+                <div className="mt-3 space-y-2">
+                  <blockquote className="p-3 bg-white border-l-4 border-orange-500 italic text-sm text-gray-700">
+                    {familyExplanation.text}
+                  </blockquote>
+                  <audio
+                    controls
+                    autoPlay
+                    className="w-full"
+                    src={`data:audio/wav;base64,${familyExplanation.audioBase64}`}
+                  >
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {!billData && (

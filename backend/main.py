@@ -6,6 +6,7 @@ import logging
 from dotenv import load_dotenv
 from agents.orchestrator import ScholarShieldOrchestrator
 from agents.grant_writer import write_grant_essay
+from agents.parent_explainer import explain_to_parent
 from io import BytesIO
 
 # Configure logging
@@ -97,5 +98,37 @@ async def write_grant_endpoint(request: GrantEssayRequest):
         }
     except Exception as e:
         logger.error(f"Error writing grant essay: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+class ParentExplanationRequest(BaseModel):
+    risk_summary: str
+    language: str = "es"
+
+
+@app.post("/api/explain-to-parent")
+async def explain_to_parent_endpoint(request: ParentExplanationRequest):
+    """
+    Endpoint to explain the financial situation to parents in their native language.
+    
+    This endpoint:
+    1. Summarizes the risk_summary into a calm, reassuring script
+    2. Translates it to the target language
+    3. Converts it to speech audio
+    4. Returns translated text and audio base64
+    """
+    try:
+        result = await explain_to_parent(
+            risk_summary=request.risk_summary,
+            target_language=request.language
+        )
+        
+        return {
+            "success": True,
+            "translated_text": result["translated_text"],
+            "audio_base64": result["audio_base64"]
+        }
+    except Exception as e:
+        logger.error(f"Error explaining to parent: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 

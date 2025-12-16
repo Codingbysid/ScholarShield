@@ -399,6 +399,7 @@ export default function Dashboard() {
                   onWriteGrant={handleWriteGrant}
                   policyAdvice={assessment.policy_findings?.advice || null}
                   recommendedActions={assessment.recommended_actions}
+                  riskLevel={assessment.risk_level}
                 />
               </>
             )}
