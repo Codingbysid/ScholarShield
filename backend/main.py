@@ -1,13 +1,20 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+"""
+ScholarShield API: Main FastAPI application
+
+This module provides the REST API endpoints for the ScholarShield application,
+handling file uploads, orchestrating agent workflows, and serving responses.
+"""
+from fastapi import FastAPI, UploadFile, File, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import os
+from pydantic import BaseModel, Field
+from typing import Dict, List, Any, Optional
 import logging
 from dotenv import load_dotenv
+from io import BytesIO
 from agents.orchestrator import ScholarShieldOrchestrator
 from agents.grant_writer import write_grant_essay
 from agents.parent_explainer import explain_to_parent
-from io import BytesIO
+from agents.constants import ASSESSMENT_STATUS_COMPLETED
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,10 +27,16 @@ app = FastAPI(title="ScholarShield API", version="2.0.0")
 # Initialize orchestrator
 orchestrator = ScholarShieldOrchestrator()
 
-# CORS middleware to allow frontend requests
+# CORS configuration - allows frontend to make requests from localhost during development
+# In production, replace with specific allowed origins
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,21 +75,28 @@ async def assess_financial_health(file: UploadFile = File(...)):
         assessment = await orchestrator.process_student_case(file_stream)
         
         return {
-            "success": assessment.get("status") == "completed",
-            "assessment": assessment
+            "success": assessment.get("status") == ASSESSMENT_STATUS_COMPLETED,
+            "assessment": assessment,
         }
     except ValueError as e:
-        logger.error(f"Validation error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Validation error in financial health assessment: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid request: {str(e)}"
+        )
     except Exception as e:
-        logger.error(f"Internal server error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Unexpected error processing financial health assessment: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing your request. Please try again."
+        )
 
 
 class GrantEssayRequest(BaseModel):
-    student_profile: dict
-    grant_requirements: str
-    policy_context: list = []
+    """Request model for grant essay generation."""
+    student_profile: Dict[str, Any] = Field(..., description="Student profile information")
+    grant_requirements: str = Field(..., description="Requirements for the grant application")
+    policy_context: List[str] = Field(default_factory=list, description="Optional policy citations to include")
 
 
 @app.post("/api/write-grant")
@@ -97,13 +117,23 @@ async def write_grant_endpoint(request: GrantEssayRequest):
             "essay": essay
         }
     except Exception as e:
-        logger.error(f"Error writing grant essay: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Error generating grant essay: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate grant essay. Please try again."
+        )
 
 
 class ParentExplanationRequest(BaseModel):
-    risk_summary: str
-    language: str = "es"
+    """Request model for parent explanation in their native language."""
+    risk_summary: str = Field(
+        ..., 
+        description="Summary of financial situation (e.g., 'Risk CRITICAL. $1200 due on 2024-12-16')"
+    )
+    language: str = Field(
+        default="es", 
+        description="Language code for translation (es=Spanish, hi=Hindi, zh-Hans=Mandarin, ar=Arabic)"
+    )
 
 
 @app.post("/api/explain-to-parent")
@@ -129,6 +159,9 @@ async def explain_to_parent_endpoint(request: ParentExplanationRequest):
             "audio_base64": result["audio_base64"]
         }
     except Exception as e:
-        logger.error(f"Error explaining to parent: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Error generating parent explanation: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate parent explanation. Please try again."
+        )
 

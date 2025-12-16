@@ -1,14 +1,24 @@
 """
 Parent Explainer Agent: Translates and speaks financial situations to parents in their native language
+
+This module handles multilingual communication to help students explain their financial
+situation to family members who may not speak English or understand technical financial terms.
 """
 import os
 import base64
 import logging
 from typing import Dict, Optional
-from io import BytesIO
 from openai import AzureOpenAI
+from agents.constants import (
+    LANGUAGE_VOICE_MAP,
+    SUPPORTED_LANGUAGES,
+    AZURE_OPENAI_API_VERSION,
+    AZURE_TRANSLATOR_API_VERSION,
+    AZURE_TRANSLATOR_DEFAULT_REGION,
+    AZURE_SPEECH_DEFAULT_REGION,
+)
 
-# Mock mode flag
+# Mock mode flag - allows testing without Azure credentials
 MOCK_MODE = os.getenv("MOCK_MODE", "true").lower() == "true"
 
 logger = logging.getLogger(__name__)
@@ -21,34 +31,28 @@ Example Output: 'Mom, Dad, we have a school bill due soon, but I found a plan to
 
 Keep responses to maximum 2 sentences. Be calm, reassuring, and focus on the solution, not just the debt."""
 
-# Language to voice mapping for empathetic neural voices
-LANGUAGE_VOICE_MAP = {
-    "es": "es-MX-DaliaNeural",  # Spanish - empathetic female voice
-    "hi": "hi-IN-SwaraNeural",  # Hindi - empathetic female voice
-    "zh-Hans": "zh-CN-XiaoxiaoNeural",  # Mandarin - empathetic female voice
-    "ar": "ar-EG-SalmaNeural",  # Arabic - empathetic female voice
-    "en": "en-US-AriaNeural",  # English fallback
-}
 
-
-async def explain_to_parent(risk_summary: str, target_language: str = "es") -> Dict:
+async def explain_to_parent(risk_summary: str, target_language: str = "es") -> Dict[str, str]:
     """
     Explains the financial situation to parents in their native language.
     
-    Steps:
-    1. Summarize the risk_summary into a calm, reassuring script (max 2 sentences)
-    2. Translate the script to target_language
-    3. Convert translated text to speech audio
-    4. Return translated text and audio as base64
+    This function orchestrates a three-step process:
+    1. Summarizes the risk_summary into a calm, reassuring script (max 2 sentences)
+    2. Translates the script to target_language using Azure Translator
+    3. Converts translated text to speech audio using Azure Speech Services
+    
+    The function uses mock mode when Azure credentials are not configured, allowing
+    the system to be tested without actual API calls.
     
     Args:
-        risk_summary: Summary of the financial situation/risk level
-        target_language: Language code (e.g., 'es' for Spanish, 'hi' for Hindi)
+        risk_summary: Summary of the financial situation/risk level (e.g., "Risk CRITICAL. $1200 due on 2024-12-16")
+        target_language: Language code (e.g., 'es' for Spanish, 'hi' for Hindi). 
+                         Must be one of the supported languages.
         
     Returns:
-        Dictionary with:
-        - translated_text: The translated explanation text
-        - audio_base64: Base64 encoded audio data (WAV format)
+        Dictionary containing:
+        - translated_text: The translated explanation text in the target language
+        - audio_base64: Base64 encoded audio data (WAV format) ready for playback
     """
     if MOCK_MODE:
         logger.info("Using mock mode for parent explanation")
@@ -85,7 +89,7 @@ async def _summarize_for_parent(risk_summary: str) -> str:
     
     client = AzureOpenAI(
         api_key=key,
-        api_version="2024-02-15-preview",
+        api_version=AZURE_OPENAI_API_VERSION,
         azure_endpoint=endpoint
     )
     
@@ -113,9 +117,12 @@ async def _translate_text(text: str, target_language: str) -> str:
     try:
         import requests
         
-        translator_endpoint = os.getenv("AZURE_TRANSLATOR_ENDPOINT", "https://api.cognitive.microsofttranslator.com")
+        translator_endpoint = os.getenv(
+            "AZURE_TRANSLATOR_ENDPOINT", 
+            "https://api.cognitive.microsofttranslator.com"
+        )
         translator_key = os.getenv("AZURE_TRANSLATOR_KEY")
-        translator_region = os.getenv("AZURE_TRANSLATOR_REGION", "eastus")
+        translator_region = os.getenv("AZURE_TRANSLATOR_REGION", AZURE_TRANSLATOR_DEFAULT_REGION)
         
         if not translator_key:
             # Fallback: if translator not configured, return original text
@@ -130,7 +137,7 @@ async def _translate_text(text: str, target_language: str) -> str:
             "Content-Type": "application/json"
         }
         params = {
-            "api-version": "3.0",
+            "api-version": AZURE_TRANSLATOR_API_VERSION,
             "from": "en",
             "to": target_language
         }
@@ -159,7 +166,7 @@ async def _text_to_speech(text: str, target_language: str) -> str:
         import azure.cognitiveservices.speech as speechsdk
         
         speech_key = os.getenv("AZURE_SPEECH_KEY")
-        speech_region = os.getenv("AZURE_SPEECH_REGION", "eastus")
+        speech_region = os.getenv("AZURE_SPEECH_REGION", AZURE_SPEECH_DEFAULT_REGION)
         
         if not speech_key:
             raise ValueError("Azure Speech key not configured")

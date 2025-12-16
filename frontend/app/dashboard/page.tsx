@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import BillUpload from "@/components/BillUpload";
 import RiskMeter from "@/components/RiskMeter";
 import ActionCards from "@/components/ActionCards";
@@ -44,6 +45,7 @@ interface FinancialAssessment {
 }
 
 export default function Dashboard() {
+  const searchParams = useSearchParams();
   const [assessment, setAssessment] = useState<FinancialAssessment | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
@@ -235,6 +237,13 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    // Auto-load demo mode if ?demo=true query parameter is present
+    const demoParam = searchParams.get("demo");
+    if (demoParam === "true") {
+      loadDemoMode();
+    }
+
+    // Also support keyboard shortcut
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === "D") {
         loadDemoMode();
@@ -243,7 +252,7 @@ export default function Dashboard() {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [loadDemoMode]);
+  }, [loadDemoMode, searchParams]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-8">
