@@ -3,28 +3,62 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Shield, ArrowRight } from "lucide-react";
+import { Shield, CheckCircle } from "lucide-react";
+import MicrosoftLoginButton from "@/components/MicrosoftLoginButton";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("student@university.edu");
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [email, setEmail] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const router = useRouter();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Show verification spinner
-    setIsVerifying(true);
+    if (!email.trim()) {
+      return;
+    }
     
-    // Simulate verification delay for demo
+    // Show authentication spinner
+    setIsAuthenticating(true);
+    setShowSuccess(false);
+    
+    // Simulate SSO authentication delay
     await new Promise((resolve) => setTimeout(resolve, 1500));
     
-    // Redirect to dashboard with demo parameter
+    // Show success checkmark briefly
+    setIsAuthenticating(false);
+    setShowSuccess(true);
+    
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    
+    // Determine redirect based on email
+    // If email includes "demo", use demo mode
+    if (email.toLowerCase().includes("demo")) {
+      router.push("/dashboard?demo=true");
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
+  const handleMicrosoftSignIn = async () => {
+    // Same logic as regular sign in
+    setIsAuthenticating(true);
+    setShowSuccess(false);
+    
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    
+    setIsAuthenticating(false);
+    setShowSuccess(true);
+    
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    
+    // Default to demo mode for Microsoft sign-in in demo
     router.push("/dashboard?demo=true");
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 flex items-center justify-center px-4 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -43,13 +77,30 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* Microsoft Login Button */}
+        <div className="mb-6">
+          <MicrosoftLoginButton
+            onClick={handleMicrosoftSignIn}
+            disabled={isAuthenticating || showSuccess}
+          />
+        </div>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+          </div>
+        </div>
+
         <form onSubmit={handleSignIn} className="space-y-6">
           <div>
             <label
               htmlFor="email"
               className="block text-sm font-semibold text-gray-700 mb-2"
             >
-              Email Address
+              School Email
             </label>
             <input
               id="email"
@@ -57,37 +108,39 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+              disabled={isAuthenticating || showSuccess}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="student@university.edu"
             />
           </div>
 
           <button
             type="submit"
-            disabled={isVerifying}
+            disabled={isAuthenticating || showSuccess || !email.trim()}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {isVerifying ? (
+            {isAuthenticating ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Verifying Student Status...
+                Authenticating with State University SSO...
+              </>
+            ) : showSuccess ? (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                Success! Redirecting...
               </>
             ) : (
-              <>
-                Sign In
-                <ArrowRight className="w-5 h-5" />
-              </>
+              "Sign In"
             )}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            Demo mode: Pre-filled credentials for demonstration
+          <p className="text-xs text-gray-500">
+            Demo tip: Use an email with &quot;demo&quot; to see the full demo flow
           </p>
         </div>
       </motion.div>
     </div>
   );
 }
-
