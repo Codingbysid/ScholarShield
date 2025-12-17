@@ -6,7 +6,7 @@ import BillUpload from "@/components/BillUpload";
 import RiskMeter from "@/components/RiskMeter";
 import ActionCards from "@/components/ActionCards";
 import ProcessingStatus from "@/components/ProcessingStatus";
-import axios from "axios";
+import { apiClient } from "@/lib/api";
 
 interface BillData {
   TotalAmount: number;
@@ -71,22 +71,11 @@ export default function Dashboard() {
     );
     
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
       // Step 1: Scanning bill
       updateStepStatus("scan", "loading");
       await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate processing time
 
-      const response = await axios.post(
-        "http://localhost:8000/api/assess-financial-health",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await apiClient.assessFinancialHealth(file);
 
       // Simulate step-by-step progress
       updateStepStatus("scan", "completed");
@@ -95,8 +84,8 @@ export default function Dashboard() {
       updateStepStatus("risk", "loading");
       await new Promise((resolve) => setTimeout(resolve, 400));
 
-      if (response.data.success && response.data.assessment) {
-        const assessmentData = response.data.assessment;
+      if (response.success && response.assessment) {
+        const assessmentData = response.assessment;
         updateStepStatus("risk", "completed");
 
         // If policy search was performed
@@ -137,7 +126,7 @@ export default function Dashboard() {
     if (!assessment) return;
     
     try {
-      const response = await axios.post("http://localhost:8000/api/write-grant", {
+      const response = await apiClient.writeGrant({
         student_profile: {
           major: "Computer Science",
           hardship_reason: "Family financial difficulties and unexpected medical expenses",
@@ -148,8 +137,8 @@ export default function Dashboard() {
         policy_context: assessment.policy_findings?.advice?.citations || []
       });
 
-      if (response.data.success) {
-        setGrantEssay(response.data.essay);
+      if (response.success) {
+        setGrantEssay(response.essay);
       }
     } catch (error) {
       console.error("Error writing grant essay:", error);

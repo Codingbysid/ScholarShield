@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FileText, Mail, DollarSign, BookOpen, Users, Volume2 } from "lucide-react";
-import axios from "axios";
+import { apiClient } from "@/lib/api";
 
 interface BillData {
   TotalAmount?: number;
@@ -57,15 +57,15 @@ export default function ActionCards({ billData, onWriteGrant, policyAdvice, reco
       const dueDate = billData.DueDate || "";
       const riskSummary = `Risk ${riskLevel}. $${amount} due on ${dueDate}.`;
 
-      const response = await axios.post("http://localhost:8000/api/explain-to-parent", {
+      const response = await apiClient.explainToParent({
         risk_summary: riskSummary,
         language: selectedLanguage,
       });
 
-      if (response.data.success) {
+      if (response.success) {
         setFamilyExplanation({
-          text: response.data.translated_text,
-          audioBase64: response.data.audio_base64,
+          text: response.translated_text,
+          audioBase64: response.audio_base64,
         });
       }
     } catch (error) {

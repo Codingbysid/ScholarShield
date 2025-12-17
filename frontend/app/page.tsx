@@ -39,10 +39,11 @@ export default function LandingPage() {
             </p>
             <Link
               href="/login"
-              className="inline-block bg-blue-600 text-white px-10 py-5 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+              className="inline-block bg-blue-600 text-white px-10 py-5 rounded-lg text-lg font-semibold hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+              aria-label="Get started with ScholarShield"
             >
               Get Started
-              <ArrowRight className="inline-block ml-2 w-5 h-5" />
+              <ArrowRight className="inline-block ml-2 w-5 h-5" aria-hidden="true" />
             </Link>
           </motion.div>
         </div>

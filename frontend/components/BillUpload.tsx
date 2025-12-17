@@ -57,30 +57,45 @@ export default function BillUpload({ onFileUpload, isAnalyzing }: BillUploadProp
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      role="region"
+      aria-label="File upload area"
     >
       <div className="flex flex-col items-center justify-center text-center">
         {isAnalyzing ? (
           <>
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-lg text-gray-700">Analyzing your bill...</p>
+            <div 
+              className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"
+              role="status"
+              aria-label="Analyzing bill"
+            >
+              <span className="sr-only">Analyzing your bill...</span>
+            </div>
+            <p className="text-lg text-gray-700" aria-live="polite">
+              Analyzing your bill...
+            </p>
           </>
         ) : (
           <>
-            <Upload className="w-16 h-16 text-blue-600 mb-4" />
+            <Upload className="w-16 h-16 text-blue-600 mb-4" aria-hidden="true" />
             <h2 className="text-2xl font-semibold text-gray-800 mb-2">
               Upload Tuition Bill
             </h2>
             <p className="text-gray-600 mb-4">
               Drag and drop your PDF bill here, or click to browse
             </p>
-            <label className="cursor-pointer bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Select PDF File
+            <label 
+              className="cursor-pointer bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 transition-colors inline-flex items-center gap-2"
+              htmlFor="bill-upload-input"
+            >
+              <FileText className="w-5 h-5" aria-hidden="true" />
+              <span>Select PDF File</span>
               <input
+                id="bill-upload-input"
                 type="file"
                 accept=".pdf,application/pdf"
                 onChange={handleFileSelect}
                 className="hidden"
+                aria-label="Upload tuition bill PDF file"
               />
             </label>
           </>

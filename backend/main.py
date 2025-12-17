@@ -4,11 +4,14 @@ ScholarShield API: Main FastAPI application
 This module provides the REST API endpoints for the ScholarShield application,
 handling file uploads, orchestrating agent workflows, and serving responses.
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from typing import Dict, List, Any, Optional
 import logging
+import os
 from dotenv import load_dotenv
 from io import BytesIO
 from pathlib import Path
@@ -25,25 +28,56 @@ logger = logging.getLogger(__name__)
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-app = FastAPI(title="ScholarShield API", version="2.0.0")
+app = FastAPI(
+    title="ScholarShield API",
+    version="2.0.0",
+    docs_url="/docs" if os.getenv("ENVIRONMENT") != "production" else None,
+    redoc_url="/redoc" if os.getenv("ENVIRONMENT") != "production" else None,
+)
 
 # Initialize orchestrator
 orchestrator = ScholarShieldOrchestrator()
 
-# CORS configuration - allows frontend to make requests from localhost during development
-# In production, replace with specific allowed origins
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-]
+# CORS configuration - secure for production
+ALLOWED_ORIGINS_ENV = os.getenv("ALLOWED_ORIGINS", "")
+if ALLOWED_ORIGINS_ENV:
+    # Production: use environment variable (comma-separated)
+    ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_ENV.split(",")]
+else:
+    # Development: default to localhost
+    ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+    expose_headers=["Content-Type"],
+    max_age=3600,
 )
+
+# Security: Trusted Host Middleware (only in production)
+if os.getenv("ENVIRONMENT") == "production":
+    trusted_hosts = os.getenv("TRUSTED_HOSTS", "").split(",")
+    if trusted_hosts:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts)
+
+
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
 
 
 @app.get("/")
@@ -70,8 +104,22 @@ async def assess_financial_health(file: UploadFile = File(...)):
     6. Returns comprehensive assessment with recommended actions
     """
     try:
-        # Read file into memory
+        # Validate file type
+        if file.content_type != "application/pdf":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF files are allowed"
+            )
+        
+        # Validate file size (max 10MB)
+        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
         file_contents = await file.read()
+        if len(file_contents) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File size exceeds {MAX_FILE_SIZE / (1024*1024):.0f}MB limit"
+            )
+        
         file_stream = BytesIO(file_contents)
         
         # Process through orchestrator
