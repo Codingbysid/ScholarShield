@@ -44,14 +44,23 @@ async def search_handbook(query: str) -> List[Dict]:
             credential=AzureKeyCredential(search_key)
         )
         
-        # Perform semantic search
-        results = client.search(
-            search_text=query,
-            top=3,
-            include_total_count=True,
-            query_type="semantic",
-            semantic_configuration_name="default"  # Assuming semantic config exists
-        )
+        # Perform search (fallback to simple search if semantic not configured)
+        try:
+            results = client.search(
+                search_text=query,
+                top=3,
+                include_total_count=True,
+                query_type="semantic",
+                semantic_configuration_name="default"
+            )
+        except Exception:
+            # Fallback to simple text search if semantic search not configured
+            logger.warning("Semantic search not available, using simple text search")
+            results = client.search(
+                search_text=query,
+                top=3,
+                include_total_count=True
+            )
         
         chunks = []
         for result in results:

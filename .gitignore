@@ -41,3 +41,13 @@ Thumbs.db
 # Docker
 *.log
 
+# Project specific
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Keep docs and scripts, but ignore large data files
+docs/*.pdf
+docs/*.docx
+docs/large-*

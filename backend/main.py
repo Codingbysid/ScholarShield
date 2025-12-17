@@ -11,6 +11,7 @@ from typing import Dict, List, Any, Optional
 import logging
 from dotenv import load_dotenv
 from io import BytesIO
+from pathlib import Path
 from agents.orchestrator import ScholarShieldOrchestrator
 from agents.grant_writer import write_grant_essay
 from agents.parent_explainer import explain_to_parent
@@ -20,7 +21,9 @@ from agents.constants import ASSESSMENT_STATUS_COMPLETED
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+# Load .env from root directory (parent of backend/)
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 app = FastAPI(title="ScholarShield API", version="2.0.0")
 
