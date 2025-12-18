@@ -80,11 +80,21 @@ async def analyze_tuition_bill(file_stream: BytesIO) -> Dict:
             invoice = result.documents[0]
             fields = invoice.fields if hasattr(invoice, 'fields') else {}
             
-            # Extract total amount
+            # Extract total amount (Azure returns CurrencyValue object)
             if "InvoiceTotal" in fields:
                 total = fields["InvoiceTotal"]
                 if hasattr(total, 'value') and total.value:
-                    extracted_data["TotalAmount"] = float(total.value)
+                    # Handle CurrencyValue object - it has an 'amount' property
+                    if hasattr(total.value, 'amount'):
+                        extracted_data["TotalAmount"] = float(total.value.amount)
+                    elif isinstance(total.value, (int, float)):
+                        extracted_data["TotalAmount"] = float(total.value)
+                    else:
+                        # Try to convert string representation
+                        try:
+                            extracted_data["TotalAmount"] = float(str(total.value))
+                        except (ValueError, TypeError):
+                            logger.warning(f"Could not extract amount from: {total.value}")
             
             # Extract due date
             if "DueDate" in fields:
