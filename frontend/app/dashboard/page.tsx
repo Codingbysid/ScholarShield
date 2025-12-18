@@ -7,6 +7,8 @@ import RiskMeter from "@/components/RiskMeter";
 import ActionCards from "@/components/ActionCards";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import { apiClient } from "@/lib/api";
+import { downloadAsPDF } from "@/lib/pdfUtils";
+import { Download } from "lucide-react";
 
 interface BillData {
   TotalAmount: number;
@@ -273,7 +275,10 @@ export default function Dashboard() {
 
             {/* Show processing steps while processing */}
             {isProcessing && (
-              <ProcessingStatus steps={processingSteps} />
+              <ProcessingStatus 
+                steps={processingSteps} 
+                billData={assessment?.bill_data}
+              />
             )}
 
             {/* Show results only after processing is complete */}
@@ -354,14 +359,29 @@ export default function Dashboard() {
                     <div className="text-gray-700 whitespace-pre-wrap mb-4 bg-white p-4 rounded border">
                       {assessment.negotiation_email}
                     </div>
-                    <button
-                      onClick={() =>
-                        navigator.clipboard.writeText(assessment.negotiation_email!)
-                      }
-                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                    >
-                      Copy Email
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          navigator.clipboard.writeText(assessment.negotiation_email!)
+                        }
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+                      >
+                        Copy Email
+                      </button>
+                      <button
+                        onClick={() =>
+                          downloadAsPDF(
+                            "Negotiation Email",
+                            assessment.negotiation_email!,
+                            "negotiation-email.pdf"
+                          )
+                        }
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download PDF
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -373,12 +393,27 @@ export default function Dashboard() {
                     <div className="text-gray-700 whitespace-pre-wrap mb-4">
                       {grantEssay}
                     </div>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(grantEssay)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                    >
-                      Copy Essay
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => navigator.clipboard.writeText(grantEssay)}
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+                      >
+                        Copy Essay
+                      </button>
+                      <button
+                        onClick={() =>
+                          downloadAsPDF(
+                            "Grant Application Essay",
+                            grantEssay,
+                            "grant-essay.pdf"
+                          )
+                        }
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download PDF
+                      </button>
+                    </div>
                   </div>
                 )}
               </>

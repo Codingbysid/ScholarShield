@@ -54,5 +54,12 @@ body {
     outline: 2px solid #2563eb;
     outline-offset: 2px;
   }
+  
+  /* Dyslexia-friendly font */
+  .dyslexic-font {
+    font-family: 'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', sans-serif !important;
+    line-height: 1.6 !important;
+    letter-spacing: 0.05em !important;
+  }
 }
 
