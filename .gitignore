@@ -51,3 +51,8 @@ htmlcov/
 docs/*.pdf
 docs/*.docx
 docs/large-*
+
+# Test files
+tuition_bill.pdf
+*.pdf
+!docs/**/*.pdf
