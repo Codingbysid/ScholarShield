@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BillUpload from "@/components/BillUpload";
 import RiskMeter from "@/components/RiskMeter";
@@ -46,7 +46,7 @@ interface FinancialAssessment {
   status: string;
 }
 
-export default function Dashboard() {
+function DashboardContent() {
   const searchParams = useSearchParams();
   const [assessment, setAssessment] = useState<FinancialAssessment | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -440,5 +440,21 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }

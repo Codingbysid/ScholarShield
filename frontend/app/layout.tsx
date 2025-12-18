@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { AccessibilityProvider } from "@/contexts/AccessibilityContext";
@@ -9,13 +9,17 @@ export const metadata: Metadata = {
   description: "Automating the bureaucracy of survival for First-Generation, Low-Income students. AI-powered tool that helps students navigate financial challenges, find grants, and negotiate tuition.",
   keywords: ["financial aid", "FGLI students", "tuition assistance", "grant applications", "student financial support"],
   authors: [{ name: "ScholarShield Team" }],
-  viewport: "width=device-width, initial-scale=1",
-  themeColor: "#2563eb",
   openGraph: {
     title: "ScholarShield - Don't Let Bureaucracy Derail Your Degree",
     description: "The AI Copilot for First-Gen Students that finds grants, negotiates tuition, and explains it all to your parents.",
     type: "website",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({
