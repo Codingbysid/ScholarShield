@@ -129,8 +129,17 @@ This loads:
 
 ## API Endpoints
 
+### Backend (FastAPI)
 - `POST /api/assess-financial-health` - Main orchestrator endpoint that processes a complete student case (analyzes bill, calculates risk, searches policies, generates advice, and drafts emails)
+- `POST /api/write-grant` - Generate grant application essay
+- `POST /api/explain-to-parent` - Translate and convert financial situation to audio for parents
 - `GET /health` - Health check
+
+### Frontend (Next.js API Routes)
+All frontend API calls go through Next.js API routes to keep backend URL secure:
+- `POST /api/assess-financial-health` - Proxy to backend
+- `POST /api/write-grant` - Proxy to backend
+- `POST /api/explain-to-parent` - Proxy to backend
 
 ## Azure Setup Instructions
 
