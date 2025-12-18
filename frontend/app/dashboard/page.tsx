@@ -228,13 +228,8 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
-    // Auto-load demo mode if ?demo=true query parameter is present
-    const demoParam = searchParams.get("demo");
-    if (demoParam === "true") {
-      loadDemoMode();
-    }
-
-    // Also support keyboard shortcut
+    // Only support keyboard shortcut for demo mode
+    // Do NOT auto-load demo data - wait for user to upload a bill
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === "D") {
         loadDemoMode();
@@ -243,7 +238,7 @@ function DashboardContent() {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [loadDemoMode, searchParams]);
+  }, [loadDemoMode]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-8">
