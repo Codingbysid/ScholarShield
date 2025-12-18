@@ -22,6 +22,10 @@ ScholarShield is an intelligent agentic system that helps students navigate fina
 - Drag-and-drop bill upload
 - Risk assessment meter
 - Actionable recommendations
+- **Accessibility Mode**: Dyslexia-friendly font toggle
+- **Azure Status Bar**: Real-time service status indicator
+- **PDF Export**: Download grant essays and negotiation emails as PDFs
+- **Enhanced Scanning**: Real-time bill data extraction visualization
 
 ## Setup
 
@@ -61,16 +65,20 @@ cp .env.example .env
 ```
 
 Fill in your Azure credentials:
-- `AZURE_OPENAI_KEY`
-- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_KEY` (Required)
+- `AZURE_OPENAI_ENDPOINT` (Required)
 - `AZURE_OPENAI_DEPLOYMENT_NAME` (default: "gpt-4o")
-- `AZURE_SEARCH_ENDPOINT`
-- `AZURE_SEARCH_KEY`
+- `AZURE_SEARCH_ENDPOINT` (Required)
+- `AZURE_SEARCH_KEY` (Required)
 - `AZURE_SEARCH_INDEX_NAME` (default: "university-policies")
-- `AZURE_FORM_RECOGNIZER_ENDPOINT`
-- `AZURE_FORM_RECOGNIZER_KEY`
+- `AZURE_FORM_RECOGNIZER_ENDPOINT` (Required)
+- `AZURE_FORM_RECOGNIZER_KEY` (Required)
+- `AZURE_TRANSLATOR_KEY` (Optional - for parent communication)
+- `AZURE_TRANSLATOR_REGION` (Optional - default: "eastus")
+- `AZURE_SPEECH_KEY` (Optional - for parent communication)
+- `AZURE_SPEECH_REGION` (Optional - default: "eastus")
 
-**Note**: The system runs in mock mode by default (set `MOCK_MODE=false` in `.env` to use real Azure services).
+**Note**: The system runs in mock mode by default (set `MOCK_MODE=false` in `.env` to use real Azure services). Optional services (Translator, Speech) will use mock data if not configured.
 
 ### Running the Application
 
@@ -94,7 +102,21 @@ The application will be available at:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 
-## Demo Mode
+## Features
+
+### Accessibility
+- **Dyslexia-Friendly Mode**: Toggle accessible fonts with the Eye icon in the navbar
+- **Keyboard Navigation**: Full keyboard support with visible focus indicators
+- **Screen Reader Support**: ARIA labels and semantic HTML throughout
+- **High Contrast**: WCAG AA compliant color schemes
+
+### User Experience
+- **Real-Time Processing**: Visual scanning animation showing data extraction in real-time
+- **Azure Status Indicator**: Bottom-right status bar showing all Azure services (hover to expand)
+- **PDF Export**: Download grant essays and negotiation emails as professional PDFs
+- **Demo Mode**: Load sample data for presentations (`Ctrl+Shift+D` or `Cmd+Shift+D`)
+
+### Demo Mode
 
 To load demo data for presentations:
 - Click the "Demo" button in the dashboard header (top-right)
@@ -195,24 +217,62 @@ ScholarShield/
 │   │   ├── document_parser.py    # Docu-Extract agent
 │   │   ├── policy_rag.py         # Policy Lawyer agent
 │   │   ├── grant_writer.py       # Grant Hunter agent
-│   │   └── negotiator.py         # Email negotiation agent
+│   │   ├── negotiator.py         # Email negotiation agent
+│   │   └── parent_explainer.py   # Parent communication agent
 │   ├── main.py                   # FastAPI application
 │   └── requirements.txt
 ├── frontend/
 │   ├── app/
+│   │   ├── api/                  # Next.js API routes (proxies to backend)
 │   │   ├── dashboard/            # Main dashboard page
-│   │   └── page.tsx              # Home page
+│   │   ├── login/                # Login page
+│   │   ├── layout.tsx            # Root layout with providers
+│   │   └── page.tsx              # Landing page
 │   ├── components/
+│   │   ├── AzureStatus.tsx       # Azure services status indicator
 │   │   ├── BillUpload.tsx        # File upload component
 │   │   ├── RiskMeter.tsx         # Risk assessment gauge
 │   │   ├── ActionCards.tsx       # Action recommendations
-│   │   └── ProcessingStatus.tsx  # Progress stepper component
+│   │   ├── ProcessingStatus.tsx  # Progress stepper with scanning animation
+│   │   └── Navbar.tsx            # Navigation with accessibility toggle
+│   ├── contexts/
+│   │   └── AccessibilityContext.tsx  # Accessibility state management
+│   ├── lib/
+│   │   ├── api.ts                # API client
+│   │   └── pdfUtils.ts           # PDF generation utilities
 │   └── public/
 │       └── demo_mode.json        # Demo data
+├── docs/
+│   └── university-handbook-sample.txt  # Sample handbook for testing
+├── scripts/
+│   ├── upload_handbook.py        # Upload handbook to Azure Search
+│   └── update_translator_speech_keys.sh  # Helper for updating keys
 ├── docker-compose.yml
 ├── env.example                   # Environment variable template
 └── README.md
 ```
+
+## Key Features
+
+### Accessibility
+- **Dyslexia-Friendly Font Toggle**: Click the Eye icon in the navbar to enable accessible fonts
+- **Persistent Preferences**: Accessibility settings saved in localStorage
+- **WCAG 2.1 AA Compliant**: Full keyboard navigation and screen reader support
+
+### Azure Integration
+- **Status Indicator**: Bottom-right status bar shows all Azure services
+- **Real-Time Monitoring**: Hover to see detailed service status
+- **Visual Feedback**: Pulsing green dot indicates system operational
+
+### Document Export
+- **PDF Downloads**: Export grant essays and negotiation emails as PDFs
+- **Professional Formatting**: Includes "Generated by ScholarShield" header
+- **One-Click Export**: Download buttons next to copy buttons
+
+### Enhanced Processing
+- **Real-Time Scanning**: Visual feedback during bill analysis
+- **Data Extraction Animation**: Shows detected invoice details as they're extracted
+- **Smooth Transitions**: Framer Motion animations throughout
 
 ## Development
 
@@ -224,6 +284,13 @@ The system includes mock implementations for all agents, allowing testing withou
 - TypeScript/React: Use ESLint and Prettier
 - Always handle errors gracefully
 - Include type hints/TypeScript types
+
+### Frontend Dependencies
+- **Next.js 14**: React framework with App Router
+- **Framer Motion**: Smooth animations
+- **jsPDF**: Client-side PDF generation
+- **Lucide React**: Icon library
+- **Tailwind CSS**: Utility-first styling
 
 ## License
 
