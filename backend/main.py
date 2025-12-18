@@ -40,15 +40,18 @@ orchestrator = ScholarShieldOrchestrator()
 
 # CORS configuration - secure for production
 ALLOWED_ORIGINS_ENV = os.getenv("ALLOWED_ORIGINS", "")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
 if ALLOWED_ORIGINS_ENV:
     # Production: use environment variable (comma-separated)
-    ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_ENV.split(",")]
+    ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_ENV.split(",") if origin.strip()]
+elif ENVIRONMENT == "production":
+    # Production mode but no ALLOWED_ORIGINS set - default to empty (deny all)
+    ALLOWED_ORIGINS = []
+    logger.warning("ENVIRONMENT=production but ALLOWED_ORIGINS not set. CORS will deny all origins.")
 else:
-    # Development: default to localhost
-    ALLOWED_ORIGINS = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-    ]
+    # Development: allow all origins for local development
+    ALLOWED_ORIGINS = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,7 +90,34 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """
+    Health check endpoint for container orchestration and load balancers.
+    Returns service status and basic system information.
+    """
+    try:
+        # Check if critical environment variables are set
+        critical_vars = {
+            "AZURE_OPENAI_ENDPOINT": os.getenv("AZURE_OPENAI_ENDPOINT"),
+            "AZURE_OPENAI_KEY": os.getenv("AZURE_OPENAI_KEY"),
+        }
+        
+        missing_vars = [key for key, value in critical_vars.items() if not value]
+        
+        status = "healthy" if not missing_vars else "degraded"
+        
+        return {
+            "status": status,
+            "service": "ScholarShield API",
+            "version": "2.0.0",
+            "environment": os.getenv("ENVIRONMENT", "development"),
+            "missing_config": missing_vars if missing_vars else None,
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }, 503
 
 
 @app.post("/api/assess-financial-health")
