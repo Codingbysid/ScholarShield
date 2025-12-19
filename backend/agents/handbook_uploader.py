@@ -9,15 +9,8 @@ from typing import List, Dict
 from io import BytesIO
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
-try:
-    from azure.ai.documentintelligence import DocumentIntelligenceClient
-    from azure.core.credentials import AzureKeyCredential as DocIntelCredential
-    DOC_INTEL_AVAILABLE = True
-except ImportError:
-    # Fallback to form recognizer if document intelligence not available
-    from azure.ai.formrecognizer import DocumentAnalysisClient
-    from azure.core.credentials import AzureKeyCredential as DocIntelCredential
-    DOC_INTEL_AVAILABLE = False
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential as DocIntelCredential
 
 logger = logging.getLogger(__name__)
 
@@ -142,30 +135,16 @@ async def extract_text_from_pdf(file_stream: BytesIO) -> str:
         if not endpoint or not key:
             raise ValueError("Azure Document Intelligence credentials not configured")
         
-        if DOC_INTEL_AVAILABLE:
-            client = DocumentIntelligenceClient(
-                endpoint=endpoint,
-                credential=DocIntelCredential(key)
-            )
-            
-            file_stream.seek(0)
-            poller = client.begin_analyze_document(
-                model_id="prebuilt-read",
-                analyze_request=file_stream.read(),
-                content_type="application/pdf"
-            )
-        else:
-            # Fallback to Form Recognizer
-            client = DocumentAnalysisClient(
-                endpoint=endpoint,
-                credential=DocIntelCredential(key)
-            )
-            
-            file_stream.seek(0)
-            poller = client.begin_analyze_document(
-                model_id="prebuilt-read",
-                document=file_stream.read()
-            )
+        client = DocumentAnalysisClient(
+            endpoint=endpoint,
+            credential=DocIntelCredential(key)
+        )
+        
+        file_stream.seek(0)
+        poller = client.begin_analyze_document(
+            model_id="prebuilt-read",
+            document=file_stream.read()
+        )
         
         result = poller.result()
         
