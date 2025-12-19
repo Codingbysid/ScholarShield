@@ -99,7 +99,7 @@ class ScholarShieldOrchestrator:
             logger.warning(f"Could not parse due date '{due_date_str}': {e}")
             return None
     
-    async def process_student_case(self, file_stream: BytesIO) -> Dict[str, Any]:
+    async def process_student_case(self, file_stream: BytesIO, university_index: Optional[str] = None) -> Dict[str, Any]:
         """
         Process a complete student financial case by chaining all agents.
         
@@ -144,7 +144,7 @@ class ScholarShieldOrchestrator:
             
             # Step 3 & 4: Search policies and generate advice if risk is elevated
             if risk_level in [RISK_LEVEL_CRITICAL, RISK_LEVEL_WARNING]:
-                await self._process_policy_search(assessment, bill_data, risk_level)
+                await self._process_policy_search(assessment, bill_data, risk_level, university_index)
             
             # Add default recommended actions for safe cases
             if assessment["risk_level"] == RISK_LEVEL_SAFE:
@@ -164,7 +164,8 @@ class ScholarShieldOrchestrator:
         self, 
         assessment: Dict[str, Any], 
         bill_data: Dict[str, Any], 
-        risk_level: str
+        risk_level: str,
+        university_index: Optional[str] = None
     ) -> None:
         """
         Process policy search and advice generation for elevated risk cases.
@@ -185,8 +186,8 @@ class ScholarShieldOrchestrator:
         due_date = bill_data.get("DueDate", "")
         query = f"tuition payment extension policies for ${amount:.2f} due on {due_date}"
         
-        # Search handbook for relevant policies
-        search_results = await search_handbook(query)
+        # Search handbook for relevant policies (use custom index if provided)
+        search_results = await search_handbook(query, index_name=university_index)
         
         if not search_results:
             logger.info("No policy search results found")

@@ -13,12 +13,13 @@ MOCK_MODE = os.getenv("MOCK_MODE", "true").lower() == "true"
 logger = logging.getLogger(__name__)
 
 
-async def search_handbook(query: str) -> List[Dict]:
+async def search_handbook(query: str, index_name: Optional[str] = None) -> List[Dict]:
     """
     Searches the university handbook using Azure AI Search.
     
     Args:
         query: The search query (e.g., "hardship extension", "emergency grant")
+        index_name: Optional custom index name (for user-uploaded handbooks)
         
     Returns:
         List of top 3 document chunks with their content and metadata
@@ -33,7 +34,9 @@ async def search_handbook(query: str) -> List[Dict]:
         
         search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
         search_key = os.getenv("AZURE_SEARCH_KEY")
-        index_name = os.getenv("AZURE_SEARCH_INDEX_NAME", "university-policies")
+        # Use provided index_name or fall back to default
+        if not index_name:
+            index_name = os.getenv("AZURE_SEARCH_INDEX_NAME", "university-policies")
         
         if not search_endpoint or not search_key:
             raise ValueError("Azure Search credentials not configured")

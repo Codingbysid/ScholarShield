@@ -72,5 +72,29 @@ export const apiClient = {
 
     return response.json();
   },
+
+  /**
+   * Upload custom university handbook
+   */
+  async uploadHandbook(
+    file: File,
+    universityName: string = "Custom University"
+  ): Promise<{ success: boolean; index_name: string; university_name: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('university_name', universityName);
+
+    const response = await fetch(`${API_BASE}/upload-handbook`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+      throw new Error(error.detail || 'Failed to upload handbook');
+    }
+
+    return response.json();
+  },
 };
 

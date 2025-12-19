@@ -6,9 +6,10 @@ import BillUpload from "@/components/BillUpload";
 import RiskMeter from "@/components/RiskMeter";
 import ActionCards from "@/components/ActionCards";
 import ProcessingStatus from "@/components/ProcessingStatus";
+import HandbookSelector from "@/components/HandbookSelector";
 import { apiClient } from "@/lib/api";
 import { downloadAsPDF } from "@/lib/pdfUtils";
-import { Download } from "lucide-react";
+import { Download, ArrowRight, CheckCircle2 } from "lucide-react";
 
 interface BillData {
   TotalAmount: number;
@@ -57,6 +58,12 @@ function DashboardContent() {
     { id: "draft", label: "Drafting Advocacy Letters...", status: "pending" },
   ]);
   const [grantEssay, setGrantEssay] = useState<string | null>(null);
+  
+  // Handbook selection state
+  const [selectedUniversity, setSelectedUniversity] = useState<string | null>(null);
+  const [universityIndex, setUniversityIndex] = useState<string | null>(null);
+  const [universityName, setUniversityName] = useState<string | null>(null);
+  const [showHandbookSelector, setShowHandbookSelector] = useState(true);
 
   const updateStepStatus = (stepId: string, status: ProcessingStep["status"]) => {
     setProcessingSteps((prev) =>
@@ -64,7 +71,19 @@ function DashboardContent() {
     );
   };
 
+  const handleHandbookSelect = useCallback((universityId: string, indexName: string, name: string) => {
+    setSelectedUniversity(universityId);
+    setUniversityIndex(indexName);
+    setUniversityName(name);
+    setShowHandbookSelector(false);
+  }, []);
+
   const handleBillUpload = useCallback(async (file: File) => {
+    if (!selectedUniversity) {
+      alert("Please select a university handbook first");
+      return;
+    }
+
     setIsProcessing(true);
     
     // Initialize all steps as pending
@@ -77,7 +96,22 @@ function DashboardContent() {
       updateStepStatus("scan", "loading");
       await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate processing time
 
-      const response = await apiClient.assessFinancialHealth(file);
+      // Include university_index in the API call
+      const apiUrl = `/api/assess-financial-health${universityIndex ? `?university_index=${encodeURIComponent(universityIndex)}` : ''}`;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || 'Failed to assess financial health');
+      }
+
+      const data = await response.json();
 
       // Simulate step-by-step progress
       updateStepStatus("scan", "completed");
@@ -86,8 +120,9 @@ function DashboardContent() {
       updateStepStatus("risk", "loading");
       await new Promise((resolve) => setTimeout(resolve, 400));
 
-      if (response.success && response.assessment) {
-        const assessmentData = response.assessment;
+      const data = response;
+      if (data.success && data.assessment) {
+        const assessmentData = data.assessment;
         updateStepStatus("risk", "completed");
 
         // If policy search was performed
@@ -261,12 +296,54 @@ function DashboardContent() {
           </button>
         </header>
 
+        {/* Step 1: Handbook Selection */}
+        {showHandbookSelector && (
+          <div className="mb-8">
+            <HandbookSelector
+              onSelect={handleHandbookSelect}
+              selectedUniversity={selectedUniversity}
+            />
+          </div>
+        )}
+
+        {/* Step 2: Bill Upload (shown after handbook selection) */}
+        {!showHandbookSelector && selectedUniversity && (
+          <div className="mb-6">
+            <div className="bg-white rounded-lg shadow-md p-4 mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-6 h-6 text-green-500" />
+                <div>
+                  <p className="font-semibold text-gray-800">Handbook Selected</p>
+                  <p className="text-sm text-gray-600">{universityName || "University Handbook"}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowHandbookSelector(true);
+                  setSelectedUniversity(null);
+                  setUniversityIndex(null);
+                  setUniversityName(null);
+                }}
+                className="text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                Change Handbook
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2">
-            <BillUpload
-              onFileUpload={handleBillUpload}
-              isAnalyzing={isProcessing}
-            />
+            {!showHandbookSelector && selectedUniversity ? (
+              <BillUpload
+                onFileUpload={handleBillUpload}
+                isAnalyzing={isProcessing}
+              />
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-8 text-center">
+                <p className="text-gray-600">Please select a university handbook above to continue</p>
+              </div>
+            )}
 
             {/* Show processing steps while processing */}
             {isProcessing && (

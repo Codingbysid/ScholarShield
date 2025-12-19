@@ -4,7 +4,7 @@ ScholarShield API: Main FastAPI application
 This module provides the REST API endpoints for the ScholarShield application,
 handling file uploads, orchestrating agent workflows, and serving responses.
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Request, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -18,6 +18,7 @@ from pathlib import Path
 from agents.orchestrator import ScholarShieldOrchestrator
 from agents.grant_writer import write_grant_essay
 from agents.parent_explainer import explain_to_parent
+from agents.handbook_uploader import upload_handbook_to_search
 from agents.constants import ASSESSMENT_STATUS_COMPLETED
 
 # Configure logging
@@ -121,7 +122,10 @@ async def health_check():
 
 
 @app.post("/api/assess-financial-health")
-async def assess_financial_health(file: UploadFile = File(...)):
+async def assess_financial_health(
+    request: Request,
+    file: UploadFile = File(...)
+):
     """
     Main orchestrator endpoint that processes a complete student financial case.
     
@@ -152,8 +156,11 @@ async def assess_financial_health(file: UploadFile = File(...)):
         
         file_stream = BytesIO(file_contents)
         
+        # Get university_index from query parameter
+        university_index_param = request.query_params.get("university_index")
+        
         # Process through orchestrator
-        assessment = await orchestrator.process_student_case(file_stream)
+        assessment = await orchestrator.process_student_case(file_stream, university_index=university_index_param)
         
         return {
             "success": assessment.get("status") == ASSESSMENT_STATUS_COMPLETED,
@@ -215,6 +222,66 @@ class ParentExplanationRequest(BaseModel):
         default="es", 
         description="Language code for translation (es=Spanish, hi=Hindi, zh-Hans=Mandarin, ar=Arabic)"
     )
+
+
+@app.post("/api/upload-handbook")
+async def upload_handbook_endpoint(
+    file: UploadFile = File(...),
+    university_name: str = Form("Custom University")
+):
+    """
+    Endpoint to upload a custom university handbook.
+    
+    This endpoint:
+    1. Extracts text from PDF or reads text file
+    2. Parses into searchable chunks
+    3. Creates/updates an Azure AI Search index
+    4. Returns the index name for use in bill assessment
+    """
+    try:
+        # Validate file type
+        if file.content_type not in ["application/pdf", "text/plain"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only PDF or text files are allowed"
+            )
+        
+        # Validate file size (max 20MB for handbooks)
+        MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
+        file_contents = await file.read()
+        if len(file_contents) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File size exceeds {MAX_FILE_SIZE / (1024*1024):.0f}MB limit"
+            )
+        
+        file_stream = BytesIO(file_contents)
+        
+        # Upload to Azure AI Search
+        index_name = await upload_handbook_to_search(
+            file_stream=file_stream,
+            file_type=file.content_type,
+            university_name=university_name
+        )
+        
+        return {
+            "success": True,
+            "index_name": index_name,
+            "university_name": university_name,
+            "message": "Handbook uploaded successfully"
+        }
+    except ValueError as e:
+        logger.error(f"Validation error in handbook upload: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid request: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error uploading handbook: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while uploading your handbook. Please try again."
+        )
 
 
 @app.post("/api/explain-to-parent")
