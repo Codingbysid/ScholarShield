@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateIndexName } from '@/lib/security';
 
-// Require BACKEND_URL environment variable - no fallback to prevent exposing localhost
+// Get BACKEND_URL from environment variable
 const BACKEND_URL = process.env.BACKEND_URL;
-if (!BACKEND_URL) {
-  throw new Error('BACKEND_URL environment variable is required');
-}
 
 export async function POST(request: NextRequest) {
+  if (!BACKEND_URL) {
+    return NextResponse.json(
+      { detail: 'Backend URL not configured' },
+      { status: 500 }
+    );
+  }
+
   try {
     // Get the file from the request
     const formData = await request.formData();

@@ -297,7 +297,7 @@ function DashboardContent() {
         prev.map((step) => ({ ...step, status: "completed" as const }))
       );
     }
-  }, []);
+  }, [selectedUniversity]);
 
   useEffect(() => {
     // Only support keyboard shortcut for demo mode
@@ -551,6 +551,7 @@ function DashboardContent() {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

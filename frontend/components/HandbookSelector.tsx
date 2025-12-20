@@ -63,7 +63,7 @@ export default function HandbookSelector({ onSelect, selectedUniversity }: Handb
         onSelect("custom", result.index_name, result.university_name || "Custom Handbook");
         setTimeout(() => setUploadSuccess(false), 3000);
       } else {
-        setUploadError(result.error || "Failed to upload handbook");
+        setUploadError("Failed to upload handbook");
       }
     } catch (error: any) {
       setUploadError(error.message || "Failed to upload handbook");

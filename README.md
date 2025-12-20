@@ -18,6 +18,9 @@ ScholarShield is an intelligent agentic system that helps students navigate fina
 - **Negotiator Agent**: Drafts professional emails to university bursars
 
 ### Frontend (Next.js)
+- **Multi-Step Workflow**: Handbook Selection → Profile Form → Bill Upload
+- **Handbook Selection**: Choose from preset universities or upload custom handbooks
+- **Student Profile**: Customizable profile (name, major, year, GPA, hardship reason) for personalized grant essays
 - Accessible dashboard with calm color palette
 - Drag-and-drop bill upload
 - Risk assessment meter
@@ -26,6 +29,7 @@ ScholarShield is an intelligent agentic system that helps students navigate fina
 - **Azure Status Bar**: Real-time service status indicator
 - **PDF Export**: Download grant essays and negotiation emails as PDFs
 - **Enhanced Scanning**: Real-time bill data extraction visualization
+- **Security**: Input validation, sanitization, and secure API routing
 
 ## Setup
 
@@ -111,16 +115,32 @@ The application will be available at:
 - **High Contrast**: WCAG AA compliant color schemes
 
 ### User Experience
+- **Multi-Step Workflow**: 
+  1. **Select University Handbook**: Choose from preset universities or upload your own
+  2. **Complete Profile**: Enter your details (name, major, year, GPA, hardship reason)
+  3. **Upload Bill**: Upload your tuition bill for analysis
+  4. **Get Personalized Advice**: Receive policy recommendations and grant essays tailored to your situation
 - **Real-Time Processing**: Visual scanning animation showing data extraction in real-time
 - **Azure Status Indicator**: Bottom-right status bar showing all Azure services (hover to expand)
 - **PDF Export**: Download grant essays and negotiation emails as professional PDFs
-- **Demo Mode**: Load sample data for presentations (`Ctrl+Shift+D` or `Cmd+Shift+D`)
+- **Personalized Grant Essays**: AI uses your actual hardship reason and profile data
+- **Demo Mode**: Load sample data for presentations (requires handbook selection first)
+
+### User Workflow
+
+1. **Login**: Sign in with your university email or Microsoft account
+2. **Select Handbook**: Choose your university from presets or upload a custom handbook
+3. **Complete Profile**: Fill in your student profile (name, major, year, GPA, hardship reason)
+4. **Upload Bill**: Upload your tuition bill PDF
+5. **Review Results**: Get personalized policy advice, risk assessment, and action recommendations
+6. **Generate Grant Essay**: Create a personalized grant application essay using your profile data
 
 ### Demo Mode
 
 To load demo data for presentations:
-- Click the "Demo" button in the dashboard header (top-right)
-- Or press `Ctrl+Shift+D` (Windows/Linux) or `Cmd+Shift+D` (Mac)
+- **First**: Select a university handbook
+- **Then**: Click the "Demo" button in the dashboard header (top-right)
+- **Or**: Press `Ctrl+Shift+D` (Windows/Linux) or `Cmd+Shift+D` (Mac)
 
 This loads:
 - A sample $1,200 tuition bill due tomorrow
@@ -130,16 +150,18 @@ This loads:
 ## API Endpoints
 
 ### Backend (FastAPI)
-- `POST /api/assess-financial-health` - Main orchestrator endpoint that processes a complete student case (analyzes bill, calculates risk, searches policies, generates advice, and drafts emails)
-- `POST /api/write-grant` - Generate grant application essay
+- `POST /api/assess-financial-health?university_index=<index>` - Main orchestrator endpoint that processes a complete student case (analyzes bill, calculates risk, searches policies, generates advice, and drafts emails). Accepts optional `university_index` parameter for custom handbook searches.
+- `POST /api/write-grant` - Generate grant application essay using student profile data
 - `POST /api/explain-to-parent` - Translate and convert financial situation to audio for parents
-- `GET /health` - Health check
+- `POST /api/upload-handbook` - Upload and process custom university handbook (creates new Azure AI Search index)
+- `GET /health` - Health check endpoint
 
 ### Frontend (Next.js API Routes)
 All frontend API calls go through Next.js API routes to keep backend URL secure:
-- `POST /api/assess-financial-health` - Proxy to backend
-- `POST /api/write-grant` - Proxy to backend
-- `POST /api/explain-to-parent` - Proxy to backend
+- `POST /api/assess-financial-health` - Proxy to backend (with university_index parameter)
+- `POST /api/write-grant` - Proxy to backend (with input sanitization)
+- `POST /api/explain-to-parent` - Proxy to backend (with input validation)
+- `POST /api/upload-handbook` - Proxy to backend (with file validation)
 
 ## Azure Setup Instructions
 
@@ -224,10 +246,11 @@ ScholarShield/
 │   ├── agents/
 │   │   ├── orchestrator.py       # Main orchestrator (coordinates all agents)
 │   │   ├── document_parser.py    # Docu-Extract agent
-│   │   ├── policy_rag.py         # Policy Lawyer agent
+│   │   ├── policy_rag.py         # Policy Lawyer agent (supports custom indexes)
 │   │   ├── grant_writer.py       # Grant Hunter agent
 │   │   ├── negotiator.py         # Email negotiation agent
-│   │   └── parent_explainer.py   # Parent communication agent
+│   │   ├── parent_explainer.py   # Parent communication agent
+│   │   └── handbook_uploader.py  # Handbook processing and Azure Search upload
 │   ├── main.py                   # FastAPI application
 │   └── requirements.txt
 ├── frontend/
@@ -243,12 +266,15 @@ ScholarShield/
 │   │   ├── RiskMeter.tsx         # Risk assessment gauge
 │   │   ├── ActionCards.tsx       # Action recommendations
 │   │   ├── ProcessingStatus.tsx  # Progress stepper with scanning animation
-│   │   └── Navbar.tsx            # Navigation with accessibility toggle
+│   │   ├── Navbar.tsx            # Navigation with accessibility toggle
+│   │   ├── HandbookSelector.tsx  # University handbook selection/upload
+│   │   └── ProfileForm.tsx       # Student profile form (view/edit mode)
 │   ├── contexts/
 │   │   └── AccessibilityContext.tsx  # Accessibility state management
 │   ├── lib/
 │   │   ├── api.ts                # API client
-│   │   └── pdfUtils.ts           # PDF generation utilities
+│   │   ├── pdfUtils.ts           # PDF generation utilities
+│   │   └── security.ts           # Security utilities (input validation, sanitization)
 │   └── public/
 │       └── demo_mode.json        # Demo data
 ├── docs/
@@ -262,6 +288,24 @@ ScholarShield/
 ```
 
 ## Key Features
+
+### Multi-Step Workflow
+- **Step 1: Handbook Selection**: Choose from preset universities (State University, Tech Institute, Liberal Arts College, Community College) or upload your own PDF/text handbook
+- **Step 2: Student Profile**: Enter your details (name, major, academic year, GPA, financial hardship reason) - view/edit mode with clean UI
+- **Step 3: Bill Upload**: Upload your tuition bill for analysis
+- **Step 4: Results**: Get personalized policy advice, risk assessment, and grant essays
+
+### Handbook Management
+- **Preset Universities**: Quick selection from common university types
+- **Custom Upload**: Upload your own university handbook (PDF or text)
+- **Automatic Processing**: Handbooks are parsed, chunked, and indexed in Azure AI Search
+- **Dynamic Indexing**: Each custom handbook gets its own search index
+- **Policy Search**: System searches the selected handbook for relevant policies
+
+### Personalized Grant Essays
+- **Real Hardship Reasons**: AI uses your actual hardship reason (e.g., "My parents lost their jobs") instead of generic templates
+- **Profile Integration**: Essays include your name, major, year, and GPA
+- **Context-Aware**: References specific university policies from your selected handbook
 
 ### Accessibility
 - **Dyslexia-Friendly Font Toggle**: Click the Eye icon in the navbar to enable accessible fonts
@@ -282,6 +326,14 @@ ScholarShield/
 - **Real-Time Scanning**: Visual feedback during bill analysis
 - **Data Extraction Animation**: Shows detected invoice details as they're extracted
 - **Smooth Transitions**: Framer Motion animations throughout
+
+### Security
+- **Input Validation**: All user inputs validated and sanitized
+- **File Upload Security**: File type, size, and name validation
+- **Parameter Validation**: University index names validated to prevent injection
+- **Error Handling**: Generic error messages prevent information leakage
+- **Security Headers**: CSP, XSS protection, clickjacking prevention
+- **Secure API Routing**: All backend calls go through Next.js API routes
 
 ## Development
 
