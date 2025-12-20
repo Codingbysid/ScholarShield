@@ -221,6 +221,12 @@ function DashboardContent() {
   };
 
   const loadDemoMode = useCallback(async () => {
+    // Only load demo if handbook is already selected
+    if (!selectedUniversity) {
+      alert("Please select a university handbook first before loading demo data");
+      return;
+    }
+
     try {
       const response = await fetch("/demo_mode.json");
       const demoData = await response.json();
@@ -304,7 +310,7 @@ function DashboardContent() {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [loadDemoMode]);
+  }, [loadDemoMode, selectedUniversity]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-8">
