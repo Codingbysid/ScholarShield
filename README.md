@@ -347,6 +347,20 @@ The system includes mock implementations for all agents, allowing testing withou
 - Include type hints/TypeScript types
 
 ### Frontend Dependencies
+- **Next.js 14.2.35**: React framework with App Router (security patched)
+- **Framer Motion**: Smooth animations
+- **jsPDF**: Client-side PDF generation (latest version, XSS patched)
+- **Lucide React**: Icon library
+- **Tailwind CSS**: Utility-first styling
+- **TypeScript**: Type safety throughout
+
+### Backend Dependencies
+- **FastAPI**: Modern Python web framework
+- **Gunicorn**: Production WSGI server
+- **Azure SDKs**: OpenAI, Document Intelligence, AI Search, Translator, Speech
+- **Pydantic**: Data validation
+
+### Frontend Dependencies
 - **Next.js 14**: React framework with App Router
 - **Framer Motion**: Smooth animations
 - **jsPDF**: Client-side PDF generation
