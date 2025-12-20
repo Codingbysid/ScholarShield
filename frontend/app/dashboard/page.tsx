@@ -69,11 +69,23 @@ function DashboardContent() {
   // Ensure handbook selector shows first on initial load
   useEffect(() => {
     // Reset to initial state on mount to ensure proper flow
+    // Always show handbook selector first, regardless of URL parameters
     setShowHandbookSelector(true);
     setSelectedUniversity(null);
     setUniversityIndex(null);
     setUniversityName(null);
-  }, []);
+    setAssessment(null); // Clear any assessment data
+    setGrantEssay(null); // Clear grant essay
+    setIsProcessing(false); // Reset processing state
+    
+    // Remove demo parameter from URL if present (clean URL)
+    const demoParam = searchParams.get("demo");
+    if (demoParam) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("demo");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams]);
 
   // Student profile state
   const [studentProfile, setStudentProfile] = useState({

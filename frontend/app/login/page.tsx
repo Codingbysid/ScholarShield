@@ -32,13 +32,9 @@ export default function LoginPage() {
     
     await new Promise((resolve) => setTimeout(resolve, 500));
     
-    // Determine redirect based on email
-    // If email includes "demo", use demo mode
-    if (email.toLowerCase().includes("demo")) {
-      router.push("/dashboard?demo=true");
-    } else {
-      router.push("/dashboard");
-    }
+    // Always redirect to dashboard without demo parameter
+    // Demo mode can be activated manually via the Demo button
+    router.push("/dashboard");
   };
 
   const handleMicrosoftSignIn = async () => {
@@ -53,8 +49,8 @@ export default function LoginPage() {
     
     await new Promise((resolve) => setTimeout(resolve, 500));
     
-    // Default to demo mode for Microsoft sign-in in demo
-    router.push("/dashboard?demo=true");
+    // Redirect to dashboard (demo mode can be activated manually)
+    router.push("/dashboard");
   };
 
   return (
