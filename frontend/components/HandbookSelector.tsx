@@ -32,8 +32,22 @@ export default function HandbookSelector({ onSelect, selectedUniversity }: Handb
   };
 
   const handleCustomUpload = useCallback(async (file: File) => {
+    // Validate file type
     if (file.type !== "application/pdf" && file.type !== "text/plain") {
       setUploadError("Please upload a PDF or text file");
+      return;
+    }
+
+    // Validate file size (max 20MB for handbooks)
+    const MAX_FILE_SIZE = 20 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadError("File size exceeds 20MB limit");
+      return;
+    }
+
+    // Validate file name
+    if (!file.name || file.name.length > 255) {
+      setUploadError("Invalid file name");
       return;
     }
 

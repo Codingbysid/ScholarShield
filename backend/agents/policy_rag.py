@@ -31,12 +31,18 @@ async def search_handbook(query: str, index_name: Optional[str] = None) -> List[
     try:
         from azure.search.documents import SearchClient
         from azure.core.credentials import AzureKeyCredential
+        import re
         
         search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
         search_key = os.getenv("AZURE_SEARCH_KEY")
         # Use provided index_name or fall back to default
         if not index_name:
             index_name = os.getenv("AZURE_SEARCH_INDEX_NAME", "university-policies")
+        else:
+            # Validate index name format to prevent injection
+            if not re.match(r'^[a-zA-Z0-9._-]{1,100}$', index_name):
+                logger.warning(f"Invalid index name format: {index_name}, using default")
+                index_name = os.getenv("AZURE_SEARCH_INDEX_NAME", "university-policies")
         
         if not search_endpoint or not search_key:
             raise ValueError("Azure Search credentials not configured")

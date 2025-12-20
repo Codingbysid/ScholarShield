@@ -193,8 +193,15 @@ async def upload_handbook_to_search(
             raise ValueError("Azure Search credentials not configured")
         
         # Generate unique index name for custom handbook
+        # Sanitize base index name to prevent injection
+        import re
+        safe_base = re.sub(r'[^a-zA-Z0-9_-]', '', base_index_name)[:50]
         index_suffix = str(uuid.uuid4())[:8]
-        index_name = f"{base_index_name}-{index_suffix}"
+        index_name = f"{safe_base}-{index_suffix}"
+        
+        # Final validation
+        if not re.match(r'^[a-zA-Z0-9._-]{1,100}$', index_name):
+            raise ValueError("Generated index name is invalid")
         
         # Extract text content
         if file_type == "application/pdf":

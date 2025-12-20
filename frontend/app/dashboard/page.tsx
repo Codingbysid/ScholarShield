@@ -120,7 +120,6 @@ function DashboardContent() {
       updateStepStatus("risk", "loading");
       await new Promise((resolve) => setTimeout(resolve, 400));
 
-      const data = response;
       if (data.success && data.assessment) {
         const assessmentData = data.assessment;
         updateStepStatus("risk", "completed");

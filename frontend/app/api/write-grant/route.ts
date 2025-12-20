@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sanitizeString } from '@/lib/security';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+// Require BACKEND_URL environment variable
+const BACKEND_URL = process.env.BACKEND_URL;
+if (!BACKEND_URL) {
+  throw new Error('BACKEND_URL environment variable is required');
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,13 +19,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize and validate input
+    if (typeof body.grant_requirements !== 'string' || body.grant_requirements.length > 5000) {
+      return NextResponse.json(
+        { detail: 'Invalid grant requirements' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize grant requirements
+    const sanitizedBody = {
+      ...body,
+      grant_requirements: sanitizeString(body.grant_requirements, 5000),
+      policy_context: Array.isArray(body.policy_context) 
+        ? body.policy_context.map((ctx: string) => sanitizeString(ctx, 500))
+        : []
+    };
+
     // Forward to backend
     const response = await fetch(`${BACKEND_URL}/api/write-grant`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(sanitizedBody),
     });
 
     const data = await response.json();

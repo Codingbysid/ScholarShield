@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sanitizeString, validateFileName } from '@/lib/security';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'https://scholarshield-backend.redstone-65874e35.eastus.azurecontainerapps.io';
+// Require BACKEND_URL environment variable
+const BACKEND_URL = process.env.BACKEND_URL;
+if (!BACKEND_URL) {
+  throw new Error('BACKEND_URL environment variable is required');
+}
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const universityName = formData.get('university_name') as string || 'Custom University';
+    let universityName = formData.get('university_name') as string || 'Custom University';
 
     if (!file) {
       return NextResponse.json(
@@ -14,6 +19,34 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validate file name
+    if (!validateFileName(file.name)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid file name' },
+        { status: 400 }
+      );
+    }
+
+    // Validate file type
+    if (!['application/pdf', 'text/plain'].includes(file.type)) {
+      return NextResponse.json(
+        { success: false, error: 'Only PDF or text files are allowed' },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size (max 20MB for handbooks)
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { success: false, error: 'File size exceeds 20MB limit' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize university name
+    universityName = sanitizeString(universityName, 100);
 
     // Forward to backend
     const backendFormData = new FormData();

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateIndexName } from '@/lib/security';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+// Require BACKEND_URL environment variable - no fallback to prevent exposing localhost
+const BACKEND_URL = process.env.BACKEND_URL;
+if (!BACKEND_URL) {
+  throw new Error('BACKEND_URL environment variable is required');
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +28,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate file name
+    if (!file.name || file.name.length > 255) {
+      return NextResponse.json(
+        { detail: 'Invalid file name' },
+        { status: 400 }
+      );
+    }
+
     // Validate file size (max 10MB)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (file.size > MAX_FILE_SIZE) {
@@ -32,11 +45,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate university_index if provided
+    const universityIndex = request.nextUrl.searchParams.get('university_index');
+    if (universityIndex && !validateIndexName(universityIndex)) {
+      return NextResponse.json(
+        { detail: 'Invalid university index name' },
+        { status: 400 }
+      );
+    }
+
     // Forward to backend
     const backendFormData = new FormData();
     backendFormData.append('file', file);
 
-    const response = await fetch(`${BACKEND_URL}/api/assess-financial-health`, {
+    const backendUrl = universityIndex 
+      ? `${BACKEND_URL}/api/assess-financial-health?university_index=${encodeURIComponent(universityIndex)}`
+      : `${BACKEND_URL}/api/assess-financial-health`;
+
+    const response = await fetch(backendUrl, {
       method: 'POST',
       body: backendFormData,
       headers: {

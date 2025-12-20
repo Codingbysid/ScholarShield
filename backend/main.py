@@ -156,8 +156,18 @@ async def assess_financial_health(
         
         file_stream = BytesIO(file_contents)
         
-        # Get university_index from query parameter
+        # Get and validate university_index from query parameter
         university_index_param = request.query_params.get("university_index")
+        
+        # Validate index name format to prevent injection
+        if university_index_param:
+            import re
+            # Allow alphanumeric, hyphens, underscores, dots only
+            if not re.match(r'^[a-zA-Z0-9._-]{1,100}$', university_index_param):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid university index name format"
+                )
         
         # Process through orchestrator
         assessment = await orchestrator.process_student_case(file_stream, university_index=university_index_param)
@@ -239,6 +249,21 @@ async def upload_handbook_endpoint(
     4. Returns the index name for use in bill assessment
     """
     try:
+        # Validate file name
+        if not file.filename:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File name is required"
+            )
+        
+        # Validate file name format (prevent path traversal)
+        import re
+        if ".." in file.filename or re.search(r'[<>:"|?*]', file.filename):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid file name"
+            )
+        
         # Validate file type
         if file.content_type not in ["application/pdf", "text/plain"]:
             raise HTTPException(
@@ -254,6 +279,12 @@ async def upload_handbook_endpoint(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"File size exceeds {MAX_FILE_SIZE / (1024*1024):.0f}MB limit"
             )
+        
+        # Validate and sanitize university name
+        if len(university_name) > 100:
+            university_name = university_name[:100]
+        # Remove potentially dangerous characters
+        university_name = re.sub(r'[<>:"|?*\x00-\x1F]', '', university_name)
         
         file_stream = BytesIO(file_contents)
         
@@ -274,9 +305,13 @@ async def upload_handbook_endpoint(
         logger.error(f"Validation error in handbook upload: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid request: {str(e)}"
+            detail="Invalid request format"
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
+        # Log full error but don't expose details to client
         logger.error(f"Unexpected error uploading handbook: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
