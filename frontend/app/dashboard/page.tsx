@@ -350,18 +350,14 @@ function DashboardContent() {
           </>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2">
-            {!showHandbookSelector && selectedUniversity ? (
+        {/* Step 3: Bill Upload (only shown after handbook selection) */}
+        {!showHandbookSelector && selectedUniversity && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="lg:col-span-2">
               <BillUpload
                 onFileUpload={handleBillUpload}
                 isAnalyzing={isProcessing}
               />
-            ) : (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center">
-                <p className="text-gray-600">Please select a university handbook above to continue</p>
-              </div>
-            )}
 
             {/* Show processing steps while processing */}
             {isProcessing && (
