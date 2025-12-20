@@ -60,11 +60,20 @@ function DashboardContent() {
   ]);
   const [grantEssay, setGrantEssay] = useState<string | null>(null);
   
-  // Handbook selection state
+  // Handbook selection state - always start with handbook selector
   const [selectedUniversity, setSelectedUniversity] = useState<string | null>(null);
   const [universityIndex, setUniversityIndex] = useState<string | null>(null);
   const [universityName, setUniversityName] = useState<string | null>(null);
   const [showHandbookSelector, setShowHandbookSelector] = useState(true);
+
+  // Ensure handbook selector shows first on initial load
+  useEffect(() => {
+    // Reset to initial state on mount to ensure proper flow
+    setShowHandbookSelector(true);
+    setSelectedUniversity(null);
+    setUniversityIndex(null);
+    setUniversityName(null);
+  }, []);
 
   // Student profile state
   const [studentProfile, setStudentProfile] = useState({
@@ -350,7 +359,7 @@ function DashboardContent() {
           </>
         )}
 
-        {/* Step 3: Bill Upload (only shown after handbook selection) */}
+        {/* Step 3: Bill Upload and Results (only shown after handbook selection) */}
         {!showHandbookSelector && selectedUniversity && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="lg:col-span-2">
@@ -359,16 +368,16 @@ function DashboardContent() {
                 isAnalyzing={isProcessing}
               />
 
-            {/* Show processing steps while processing */}
-            {isProcessing && (
-              <ProcessingStatus 
-                steps={processingSteps} 
-                billData={assessment?.bill_data}
-              />
-            )}
+              {/* Show processing steps while processing */}
+              {isProcessing && (
+                <ProcessingStatus 
+                  steps={processingSteps} 
+                  billData={assessment?.bill_data}
+                />
+              )}
 
-            {/* Show results only after processing is complete */}
-            {assessment && !isProcessing && (
+              {/* Show results only after processing is complete */}
+              {assessment && !isProcessing && (
               <>
                 <div className="mt-6 bg-white rounded-lg shadow-md p-6">
                   <h2 className="text-2xl font-semibold text-gray-800 mb-4">
