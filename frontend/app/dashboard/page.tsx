@@ -7,6 +7,7 @@ import RiskMeter from "@/components/RiskMeter";
 import ActionCards from "@/components/ActionCards";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import HandbookSelector from "@/components/HandbookSelector";
+import ProfileForm from "@/components/ProfileForm";
 import { apiClient } from "@/lib/api";
 import { downloadAsPDF } from "@/lib/pdfUtils";
 import { Download, ArrowRight, CheckCircle2 } from "lucide-react";
@@ -64,6 +65,15 @@ function DashboardContent() {
   const [universityIndex, setUniversityIndex] = useState<string | null>(null);
   const [universityName, setUniversityName] = useState<string | null>(null);
   const [showHandbookSelector, setShowHandbookSelector] = useState(true);
+
+  // Student profile state
+  const [studentProfile, setStudentProfile] = useState({
+    name: "Student",
+    major: "Undecided",
+    year: "Freshman",
+    gpa: "3.0",
+    hardship_reason: "Financial difficulties"
+  });
 
   const updateStepStatus = (stepId: string, status: ProcessingStep["status"]) => {
     setProcessingSteps((prev) =>
@@ -164,10 +174,11 @@ function DashboardContent() {
     try {
       const response = await apiClient.writeGrant({
         student_profile: {
-          major: "Computer Science",
-          hardship_reason: "Family financial difficulties and unexpected medical expenses",
-          gpa: "3.5",
-          year: "Sophomore"
+          name: studentProfile.name,
+          major: studentProfile.major,
+          hardship_reason: studentProfile.hardship_reason,
+          gpa: studentProfile.gpa,
+          year: studentProfile.year
         },
         grant_requirements: "Emergency grant for students facing immediate financial hardship. Must demonstrate need and maintain good academic standing.",
         policy_context: assessment.policy_findings?.advice?.citations || []
@@ -305,30 +316,38 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Step 2: Bill Upload (shown after handbook selection) */}
+        {/* Step 2: Profile Form (shown after handbook selection) */}
         {!showHandbookSelector && selectedUniversity && (
-          <div className="mb-6">
-            <div className="bg-white rounded-lg shadow-md p-4 mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-6 h-6 text-green-500" />
-                <div>
-                  <p className="font-semibold text-gray-800">Handbook Selected</p>
-                  <p className="text-sm text-gray-600">{universityName || "University Handbook"}</p>
+          <>
+            <div className="mb-6">
+              <div className="bg-white rounded-lg shadow-md p-4 mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Handbook Selected</p>
+                    <p className="text-sm text-gray-600">{universityName || "University Handbook"}</p>
+                  </div>
                 </div>
+                <button
+                  onClick={() => {
+                    setShowHandbookSelector(true);
+                    setSelectedUniversity(null);
+                    setUniversityIndex(null);
+                    setUniversityName(null);
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-800 underline"
+                >
+                  Change Handbook
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  setShowHandbookSelector(true);
-                  setSelectedUniversity(null);
-                  setUniversityIndex(null);
-                  setUniversityName(null);
-                }}
-                className="text-sm text-blue-600 hover:text-blue-800 underline"
-              >
-                Change Handbook
-              </button>
             </div>
-          </div>
+
+            {/* Student Profile Form */}
+            <ProfileForm
+              initialData={studentProfile}
+              onSave={setStudentProfile}
+            />
+          </>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
